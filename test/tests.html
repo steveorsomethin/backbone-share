@@ -9,7 +9,20 @@
 	<script src="../deps/jquery.js"></script>
 	<script src="../deps/expect.js"></script>
 	<script src="../deps/mocha.js"></script>
-	<script>mocha.setup('bdd')</script>
+	<script>
+		mocha.setup('bdd');
+		//Workaround due to mocha not quite liking browser async tests
+		//See: https://github.com/visionmedia/mocha/pull/278
+		function asyncAssert(done, assertFunc) {
+			try {
+				assertFunc.call();
+			} catch (error) {
+				return done(error);
+			}
+
+			return done();
+		};
+	</script>
 	<script src="../deps/underscore.js"></script>
 	<script src="../deps/backbone.js"></script>
 	<script src="/channel/bcsocket.js"></script>
@@ -17,6 +30,7 @@
 	<script src="/share/json.uncompressed.js"></script>
 	<script src="../build/backbone-share.js"></script>
 	<script src="./SharedModel.non-hierarchical.js"></script>
+	<script src="./SharedModel.hierarchical.js"></script>
 	<script>
 		mocha.run();
 	</script>
