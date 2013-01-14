@@ -1,0 +1,24 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Mocha Tests</title>
+	<link rel="stylesheet" href="mocha.css" />
+</head>
+<body>
+	<div id="mocha"></div>
+	<script src="../deps/jquery.js"></script>
+	<script src="../deps/expect.js"></script>
+	<script src="../deps/mocha.js"></script>
+	<script>mocha.setup('bdd')</script>
+	<script src="../deps/underscore.js"></script>
+	<script src="../deps/backbone.js"></script>
+	<script src="/channel/bcsocket.js"></script>
+	<script src="/share/share.uncompressed.js"></script>
+	<script src="/share/json.uncompressed.js"></script>
+	<script src="../build/backbone-share.js"></script>
+	<script src="./tests.js"></script>
+	<script>
+		mocha.run();
+	</script>
+</body>
+</html>
