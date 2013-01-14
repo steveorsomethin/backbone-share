@@ -125,13 +125,81 @@ describe('SharedModel', function() {
 
 				this.on('change', function() {
 					asyncAssert(done, function() {
-						console.log(arguments, model);
+						expect(model.get('strTest')).to.eql('abcdefghij');
 					});
 				});
 
-				this._handleOperation({
-					p: ['strTest', 7], si: 'hij'
+				this._handleOperation({p: ['strTest', 7], si: 'hij'});
+			});
+		});
+
+		it('should update on incoming sd operation', function(done) {
+			new TestModel().on('share:connected', function(shareDoc) {
+				var model = this;
+
+				this.on('change', function() {
+					asyncAssert(done, function() {
+						expect(model.get('strTest')).to.eql('abefg');
+					});
 				});
+
+				this._handleOperation({p: ['strTest', 2], sd: 'cd'});
+			});
+		});
+
+		it('should update on incoming oi/od operation with true', function(done) {
+			new TestModel().on('share:connected', function(shareDoc) {
+				var model = this;
+
+				this.on('change', function() {
+					asyncAssert(done, function() {
+						expect(model.get('boolTest')).to.eql(true);
+					});
+				});
+
+				this._handleOperation({p: ['boolTest'], od: false, oi: true});
+			});
+		});
+
+		it('should update on incoming oi/od operation with false', function(done) {
+			new TestModel({boolTest: true}).on('share:connected', function(shareDoc) {
+				var model = this;
+
+				this.on('change', function() {
+					asyncAssert(done, function() {
+						expect(model.get('boolTest')).to.eql(false);
+					});
+				});
+
+				this._handleOperation({p: ['boolTest'], od: true, oi: false});
+			});
+		});
+
+		it('should update on incoming positive na operation', function(done) {
+			new TestModel().on('share:connected', function(shareDoc) {
+				var model = this;
+
+				this.on('change', function() {
+					asyncAssert(done, function() {
+						expect(model.get('numTest')).to.eql(100);
+					});
+				});
+
+				this._handleOperation({p: ['numTest'], na: 50});
+			});
+		});
+
+		it('should update on incoming negative na operation', function(done) {
+			new TestModel().on('share:connected', function(shareDoc) {
+				var model = this;
+
+				this.on('change', function() {
+					asyncAssert(done, function() {
+						expect(model.get('numTest')).to.eql(0);
+					});
+				});
+
+				this._handleOperation({p: ['numTest'], na: -50});
 			});
 		});
 	});
