@@ -2,7 +2,7 @@ var TestModel = Backbone.SharedModel.extend({
 	defaults: {
 		strTest: '',
 		boolTest: false,
-		numTest: 0
+		numTest: 50
 	}
 });
 
@@ -98,6 +98,36 @@ describe('SharedModel', function() {
 				});
 
 				this.set('boolTest', false);
+			});
+		});
+
+		it('should emit positive na operation of when changing number positively', function(done) {
+			new TestModel().on('share:connected', function(shareDoc) {
+				var model = this;
+
+				shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql([{p: ['numTest'], na: 50}]);
+						expect(shareDoc.snapshot).to.eql(model.toJSON());
+					});
+				});
+
+				this.set('numTest', 100);
+			});
+		});
+
+		it('should emit negative na operation of when changing number negatively', function(done) {
+			new TestModel().on('share:connected', function(shareDoc) {
+				var model = this;
+
+				shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql([{p: ['numTest'], na: -50}]);
+						expect(shareDoc.snapshot).to.eql(model.toJSON());
+					});
+				});
+
+				this.set('numTest', 0);
 			});
 		});
 	});
