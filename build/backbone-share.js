@@ -3,8 +3,7 @@
 	var root = this,
 		Backbone = root.Backbone,
 		sharejs = root.sharejs,
-		_ = root._,
-		$ = root.$;
+		_ = root._;
 	//TODO: Ensure the above imports are resolved and work in node.js
 
 	var diff = (function() {
@@ -69,6 +68,21 @@
 			};
 		};
 
+	}).call(this);
+
+	//Lifted from jQuery
+	var type = (function() {
+		var class2type = {};
+
+		_.each("Boolean Number String Function Array Date RegExp Object".split(" "), function(name) {
+			class2type[ "[object " + name + "]" ] = name.toLowerCase();
+		});
+
+		return function( obj ) {
+			return obj == null ?
+				String(obj ):
+				class2type[Object.prototype.toString.call(obj)] || "object";
+		}
 	}).call(this);
 
 	var S4 = function() {
@@ -137,7 +151,7 @@
 				attributes = this.toJSON();
 
 				_.each(_.pairs(attributes), function(pair) {
-					var k = pair[0], v = pair[1], t = $.type(v);
+					var k = pair[0], v = pair[1], t = type(v);
 
 					if (t === 'boolean') {
 						attributes[k] = v === true ? 1 : 0;
@@ -160,13 +174,16 @@
 					return self._sendModelChange(options);
 				}
 			});
+
+			this.trigger('share:connected', this.shareDoc);
 		},
 
 		_sendModelChange: function() {
 			var self = this;
 
-			var ops = _.map(_.pairs(this.changedAttributes()), function(pair) {
-				var k = pair[0], v = pair[1], t = $.type(v), prev = self.previous(k);
+			var ops = [];
+			_.each(_.pairs(this.changedAttributes()), function(pair) {
+				var k = pair[0], v = pair[1], t = type(v), prev = self.previous(k);
 				var result, textDiff;
 				result = {p: self.documentPath.concat([k])};
 				switch(t) {
@@ -174,11 +191,16 @@
 						textDiff = diff(prev, v);
 						result.p.push(textDiff.p);
 
-						if (textDiff.i && textDiff.i !== '') {
-							result.si = textDiff.i;
-						}
-						if (textDiff.d && textDiff.d !== '') {
+						if (!!textDiff.d) {
 							result.sd = textDiff.d;
+						}
+						if (!!textDiff.i) {
+							if (result.sd) {
+								ops.push(result);
+								result = _.clone(result);
+								delete result.sd;
+							}
+							result.si = textDiff.i;
 						}
 						break;
 					case 'number':
@@ -210,7 +232,7 @@
 						break;
 				}
 
-				return result;
+				return ops.push(result);
 			});
 
 			console.log('Sending:', ops);
