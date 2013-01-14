@@ -15,6 +15,7 @@
 		"zombie": "1.x.x",
 		"mocha": "1.x.x",
 		"express": "2.x.x",
-		"share": "0.x.x"
+		"share": "0.x.x",
+		"redis": "0.x.x"
 	}
 }
