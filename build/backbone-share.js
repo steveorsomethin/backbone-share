@@ -104,11 +104,12 @@
 
 			var self = this;
 
+			attr = attr || {};
 			options = options || {};
-			this.defaults = this.defaults || {};
 
-			this.set('id', options.id || generateGUID());
+			this.set('id', attr.id || generateGUID());
 			
+			this.defaults = this.defaults || {};
 			this.documentPath = options.documentPath || this.generateDocumentPath();
 
 			if (!Array.isArray(this.documentPath)) {
