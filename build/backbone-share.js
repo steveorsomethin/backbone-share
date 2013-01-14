@@ -273,7 +273,7 @@
 				pathIndex = op.p[op.p.length - 1],
 				original = this.get(pathProp),
 				modified, deleted;
-			console.log(pathProp, pathIndex, this);
+			
 			if (op.si) {
 				this.set(
 					pathProp,
