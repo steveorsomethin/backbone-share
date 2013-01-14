@@ -101,7 +101,7 @@ describe('SharedModel', function() {
 			});
 		});
 
-		it('should emit positive na operation of when changing number positively', function(done) {
+		it('should emit positive na operation when changing number positively', function(done) {
 			new TestModel().on('share:connected', function(shareDoc) {
 				var model = this;
 
@@ -116,7 +116,7 @@ describe('SharedModel', function() {
 			});
 		});
 
-		it('should emit negative na operation of when changing number negatively', function(done) {
+		it('should emit negative na operation when changing number negatively', function(done) {
 			new TestModel().on('share:connected', function(shareDoc) {
 				var model = this;
 
