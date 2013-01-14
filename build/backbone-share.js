@@ -277,17 +277,17 @@
 			if (op.si) {
 				this.set(
 					pathProp,
-					original.splice(0, pathIndex) + op.si + original.splice(pathIndex),
+					original.slice(0, pathIndex) + op.si + original.slice(pathIndex),
 					{local: true}
 				);
 			}
 
 			if (op.sd) {
-				deleted = original.splice(pathIndex, pathIndex + op.sd.length);
+				deleted = original.slice(pathIndex, pathIndex + op.sd.length);
 				if (op.sd !== deleted) {
 					throw new Error('Delete component ' + op.sd + ' does not match deleted text ' + deleted);
 				}
-				modified = original.splice(original.splice(0, pathIndex) + original.splice(pathIndex + op.sd.length));
+				modified = original.slice(0, pathIndex) + original.slice(pathIndex + op.sd.length);
 				this.set(pathProp, modified, {local: true});
 			}
 		},
