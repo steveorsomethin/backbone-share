@@ -93,9 +93,8 @@
 		return S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4();
 	};
 
-	var isBackboneModel = function(obj) {
-		return obj instanceof Backbone.Model || obj instanceof Backbone.Collection
-			|| obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
+	var isShareModel = function(obj) {
+		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
 	Backbone.SharedModel = Backbone.Model.extend({
@@ -111,14 +110,22 @@
 			
 			this.defaults = this.defaults || {};
 			this.documentPath = options.documentPath || this.generateDocumentPath();
+			this.pendingOperations = [];
+
+			this.parent = options.parent;
 
 			if (!Array.isArray(this.documentPath)) {
 				throw new Error('Document path must be an array');
 			}
 
-			if (options.shareDoc) {
+			if (this.parent && this.parent.shareDoc) {
 				this.isRoot = false;
-				this.initShareDoc(options.shareDoc);
+				this.initShareDoc(this.parent.shareDoc);
+			} else if (this.parent) {
+				this.parent.on('share:connected', function(shareDoc) {
+					self.isRoot = false;
+					self.initShareDoc(shareDoc);
+				});
 			} else {
 				this.isRoot = true;
 				this.documentName = options.documentName || this.generateDocumentName();
@@ -129,6 +136,12 @@
 					self.initShareDoc(doc);
 				});
 			}
+
+			this.on("change", function(model, options) {
+				if (!options || !options.local) {
+					return self._sendModelChange(options);
+				}
+			});
 		},
 
 		generateDocumentPath: function() {
@@ -149,17 +162,8 @@
 			this.shareDoc = shareDoc;
 
 			if (shareDoc.created) {
-				attributes = this.toJSON();
-
-				_.each(_.pairs(attributes), function(pair) {
-					var k = pair[0], v = pair[1], t = type(v);
-
-					if (t === 'boolean') {
-						attributes[k] = v === true ? 1 : 0;
-					}
-				});
-
-				shareDoc.submitOp([{p: this.documentPath, od: null, oi: attributes}]);
+				shareDoc.submitOp([{p: this.documentPath, od: null, oi: this.toJSON()}]);
+				shareDoc.created = false;
 			}
 
 			shareDoc.on('remoteop', function(ops) {
@@ -170,13 +174,14 @@
 				});
 			});
 
-			this.on("change", function(model, options) {
-				if (!options || !options.local) {
-					return self._sendModelChange(options);
-				}
-			});
-
-			this.trigger('share:connected', this.shareDoc);
+			if (this.pendingOperations.length) {
+				shareDoc.submitOp(this.pendingOperations, function(error) {
+					if (!error) self.pendingOperations.length = 0;
+					this.trigger('share:connected', this.shareDoc);
+				});
+			} else {
+				this.trigger('share:connected', this.shareDoc);
+			}
 		},
 
 		_sendModelChange: function() {
@@ -208,24 +213,31 @@
 						result.na = v - prev;
 						break;
 					case 'boolean':
-						//There is no boolean operation, so we use number add
-						//TODO: Check that it actually changed, or else undo will get weird
-						result.na = v ? 1 : -1;
+						result.oi = v;
+						result.od = !v;
 						break;
 					case 'object':
 					case 'array':
-						if (isBackboneModel(v)) {
+						if (isShareModel(v)) {
 							result.oi = v.toJSON();
 						} else {
 							result.oi = v;
 						}
+
+						if (prev) {
+							if (isShareModel(prev)) {
+								result.od = prev.toJSON();
+							} else {
+								result.od = prev;
+							}
+						}
 						break;
 					case 'null':
 					case 'undefined':
-						if (isBackboneModel(prev)) {
-							result.od = v.toJSON();
+						if (isShareModel(prev)) {
+							result.od = prev.toJSON();
 						} else {
-							result.od = v;
+							result.od = prev;
 						} 
 						break;
 					default:
@@ -236,72 +248,75 @@
 				return ops.push(result);
 			});
 
-			console.log('Sending:', ops);
-			this.shareDoc.submitOp(ops, function(error, ops) {
-				//self.shareDoc.submitOp(self.shareDoc.type.invert(ops), function() {
-					console.log(arguments);
-				//});
-			});
+			if (this.shareDoc) {
+				console.log('Sending:', ops);
+				this.shareDoc.submitOp(ops, function(error, ops) {
+					//self.shareDoc.submitOp(self.shareDoc.type.invert(ops), function() {
+						console.log(arguments);
+					//});
+				});
+			} else {
+				Array.prototype.push(pendingOperations, ops);
+			}
 		},
 
 		_handleOperation: function (op) {
-			if (this.isRoot && op.p.length <= 2) {
+			if (this.isRoot && op.p.length <= 2 || _.isEqual(op.p, this.documentPath)) {
 				if (op.si || op.sd) this._handleStringOperation(op);
 				if (op.oi || op.od) this._handleObjectOperation(op);
 				if (op.na) this._handleNumberOperation(op);
-			} else {
-				if (op.p === this.documentPath.join(':')) {
-					throw new Error('Not implemented yet');
-				}
 			}
 		},
 
 		_handleStringOperation: function(op) {
-			var original = this.get(op.p[0]),
+			var pathProp = op.p[op.p.length - 2],
+				pathIndex = op.p[op.p.length - 1],
+				original = this.get(pathProp),
 				modified, deleted;
-
+			console.log(pathProp, pathIndex, this);
 			if (op.si) {
 				this.set(
-					op.p[0], 
-					original.splice(0, op.p[1]) + op.si + original.splice(op.p[1]),
+					pathProp,
+					original.splice(0, pathIndex) + op.si + original.splice(pathIndex),
 					{local: true}
 				);
 			}
 
 			if (op.sd) {
-				deleted = original.splice(op.p[1], op.p[1] + op.sd.length);
+				deleted = original.splice(pathIndex, pathIndex + op.sd.length);
 				if (op.sd !== deleted) {
 					throw new Error('Delete component ' + op.sd + ' does not match deleted text ' + deleted);
 				}
-				modified = original.splice(original.splice(0, op.p[1]) + original.splice(op.p[1] + op.sd.length));
-				this.set(op.p[0], modified, {local: true});
+				modified = original.splice(original.splice(0, pathIndex) + original.splice(pathIndex + op.sd.length));
+				this.set(pathProp, modified, {local: true});
 			}
 		},
 
 		_handleObjectOperation: function(op) {
-			var constructor = this.defaults[op.p[0]];
+			var pathProp = op.p[op.p.length - 1],
+				obj = this.get(pathProp);
+
 			if (op.oi) {
-				if (constructor instanceof Backbone.Model ||
-						constructor instanceof Backbone.Collection) {
-					this.set(op.p[0], new constructor(op.oi), {local: true});
+				if (isShareModel(obj)) {
+					obj.clear({local: true});
+					obj.set(op.oi, {local: true});
 				} else {
-					this.set(op.p[0], op.oi, {local: true});
+					this.set(pathProp, op.oi, {local: true});
 				}
 			} else {
-				this.unset(op.p[0], {local: true});
+				if (isShareModel(obj)) {
+					obj.clear({local: true});
+				} else {
+					this.unset(pathProp, {local: true});
+				}
 			}
 		},
 
 		_handleNumberOperation: function(op) {
-			var currentValue = this.get(op[0]);
+			var pathProp = op.p[op.p.length - 1],
+				currentValue = this.get(pathProp);
 
-			if (op.na > 0) {
-				if (currentValue === true || currentValue === false) {
-					this.get(op[0]).set(op.na === 1, {local: true});
-				} else {
-					this.get(op[0]).set(currentValue + op.na, {local: true});
-				}
-			}
+			this.get(pathProp).set(currentValue + op.na, {local: true});
 		}
 	});
 
@@ -311,6 +326,8 @@
 	// Need to come up with undo-redo
 	// Check paths on receiving ops
 	// Need to validate models
+	// Error handling on submitOp
+	// Verify re-opening works
 
 	Backbone.SharedCollection = Backbone.Collection.extend({
 		constructor: function(models, options) {

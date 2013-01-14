@@ -1,22 +1,10 @@
 var TestModel = Backbone.SharedModel.extend({
 	defaults: {
-		strTest: '',
+		strTest: 'abcdefg',
 		boolTest: false,
 		numTest: 50
 	}
 });
-
-//Workaround due to mocha not quite liking browser async tests
-//See: https://github.com/visionmedia/mocha/pull/278
-var asyncAssert = function(done, assertFunc) {
-	try {
-		assertFunc.call();
-	} catch (error) {
-		return done(error);
-	}
-
-	return done();
-};
 
 describe('SharedModel', function() {
 	before(function(done) {
@@ -32,32 +20,32 @@ describe('SharedModel', function() {
 
 				shareDoc.on('change', function(ops) {
 					asyncAssert(done, function() {
-						expect(ops).to.eql([{p: ['strTest', 0], si: 'abc'}]);
+						expect(ops).to.eql([{p: ['strTest', 7], si: 'hij'}]);
 						expect(shareDoc.snapshot).to.eql(model.toJSON());
 					});
 				});
 
-				this.set('strTest', 'abc');
+				this.set('strTest', 'abcdefghij');
 			});
 		});
 
 		it('should emit sd operation when deleting text', function(done) {
-			new TestModel({strTest: 'abc'}).on('share:connected', function(shareDoc) {
+			new TestModel().on('share:connected', function(shareDoc) {
 				var model = this;
 
 				shareDoc.on('change', function(ops) {
 					asyncAssert(done, function() {
-						expect(ops).to.eql([{p: ['strTest', 2], sd: 'c'}]);
+						expect(ops).to.eql([{p: ['strTest', 6], sd: 'g'}]);
 						expect(shareDoc.snapshot).to.eql(model.toJSON());
 					});
 				});
 
-				this.set('strTest', 'ab');
+				this.set('strTest', 'abcdef');
 			});
 		});
 
 		it('should emit si and sd operations when replacing text', function(done) {
-			new TestModel({strTest: 'abcdefg'}).on('share:connected', function(shareDoc) {
+			new TestModel().on('share:connected', function(shareDoc) {
 				var model = this;
 
 				shareDoc.on('change', function(ops) {
@@ -71,13 +59,13 @@ describe('SharedModel', function() {
 			});
 		});
 
-		it('should emit na operation of 1 when setting value to true', function(done) {
+		it('should emit oi and od operations when setting value to true', function(done) {
 			new TestModel().on('share:connected', function(shareDoc) {
 				var model = this;
 
 				shareDoc.on('change', function(ops) {
 					asyncAssert(done, function() {
-						expect(ops).to.eql([{p: ['boolTest'], na: 1}]);
+						expect(ops).to.eql([{p: ['boolTest'], od: false, oi: true}]);
 						expect(shareDoc.snapshot).to.eql(model.toJSON());
 					});
 				});
@@ -86,13 +74,13 @@ describe('SharedModel', function() {
 			});
 		});
 
-		it('should emit na operation of -1 when setting value to false', function(done) {
+		it('should emit oi and od operations when setting value to false', function(done) {
 			new TestModel({boolTest: true}).on('share:connected', function(shareDoc) {
 				var model = this;
 
 				shareDoc.on('change', function(ops) {
 					asyncAssert(done, function() {
-						expect(ops).to.eql([{p: ['boolTest'], na: -1}]);
+						expect(ops).to.eql([{p: ['boolTest'], od: true, oi: false}]);
 						expect(shareDoc.snapshot).to.eql(model.toJSON());
 					});
 				});
@@ -101,7 +89,7 @@ describe('SharedModel', function() {
 			});
 		});
 
-		it('should emit positive na operation when changing number positively', function(done) {
+		it('should emit positive na operation when increasing a number', function(done) {
 			new TestModel().on('share:connected', function(shareDoc) {
 				var model = this;
 
@@ -116,7 +104,7 @@ describe('SharedModel', function() {
 			});
 		});
 
-		it('should emit negative na operation when changing number negatively', function(done) {
+		it('should emit negative na operation when decreasing a number', function(done) {
 			new TestModel().on('share:connected', function(shareDoc) {
 				var model = this;
 
@@ -128,6 +116,22 @@ describe('SharedModel', function() {
 				});
 
 				this.set('numTest', 0);
+			});
+		});
+
+		it('should update on incoming si operation', function(done) {
+			new TestModel().on('share:connected', function(shareDoc) {
+				var model = this;
+
+				this.on('change', function() {
+					asyncAssert(done, function() {
+						console.log(arguments, model);
+					});
+				});
+
+				this._handleOperation({
+					p: ['strTest', 7], si: 'hij'
+				});
 			});
 		});
 	});
