@@ -288,6 +288,7 @@
 					throw new Error('Delete component ' + op.sd + ' does not match deleted text ' + deleted);
 				}
 				modified = original.slice(0, pathIndex) + original.slice(pathIndex + op.sd.length);
+
 				this.set(pathProp, modified, {local: true});
 			}
 		},
@@ -296,7 +297,7 @@
 			var pathProp = op.p[op.p.length - 1],
 				obj = this.get(pathProp);
 
-			if (op.oi) {
+			if (op.oi || op.oi === false) {
 				if (isShareModel(obj)) {
 					obj.clear({local: true});
 					obj.set(op.oi, {local: true});
@@ -316,7 +317,7 @@
 			var pathProp = op.p[op.p.length - 1],
 				currentValue = this.get(pathProp);
 
-			this.get(pathProp).set(currentValue + op.na, {local: true});
+			this.set(pathProp, currentValue + op.na, {local: true});
 		}
 	});
 
