@@ -112,7 +112,6 @@
 			this.documentPath = options.documentPath || this.generateDocumentPath();
 			this.pendingOperations = [];
 
-			this.parent = options.parent;
 			if (!this.subDocTypes) {
 				this._inferSubDocTypes();
 			}
@@ -121,15 +120,9 @@
 				throw new Error('Document path must be an array');
 			}
 
-			if (this.parent && this.parent.shareDoc) {
-				this.isRoot = false;
-				this.initShareDoc(this.parent.shareDoc);
-			} else if (this.parent) {
-				this.parent.on('share:connected', function(shareDoc) {
-					self.isRoot = false;
-					self.initShareDoc(shareDoc);
-				});
-			} else {
+			if (options.parent) {
+				this.setParent(options.parent);
+			} else if (!options.defer) {
 				this.isRoot = true;
 				this.documentName = options.documentName || this.generateDocumentName();
 				sharejs.open(this.documentName, 'json', function(err, doc) {
@@ -145,6 +138,22 @@
 					return self._sendModelChange(options);
 				}
 			});
+		},
+
+		setParent: function(parent) {
+			var self = this;
+
+			this.parent = parent;
+
+			if (this.parent.shareDoc) {
+				this.isRoot = false;
+				this.initShareDoc(this.parent.shareDoc);
+			} else {
+				this.parent.on('share:connected', function(shareDoc) {
+					self.isRoot = false;
+					self.initShareDoc(shareDoc);
+				});
+			}
 		},
 
 		generateDocumentPath: function() {
