@@ -345,13 +345,12 @@
 	});
 
 	// Collection path should be a simple name?
-	// Need to deal with non-roots
-	// Need to deal with hooking up parents to children
 	// Need to come up with undo-redo
-	// Check paths on receiving ops
 	// Need to validate models
 	// Error handling on submitOp
 	// Verify re-opening works
+	// Clean up parent/child reference cycles
+	// Connect parent/child on set
 
 	Backbone.SharedCollection = Backbone.Collection.extend({
 		constructor: function(models, options) {
