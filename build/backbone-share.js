@@ -113,6 +113,9 @@
 			this.pendingOperations = [];
 
 			this.parent = options.parent;
+			if (!this.subDocTypes) {
+				this._inferSubDocTypes();
+			}
 
 			if (!Array.isArray(this.documentPath)) {
 				throw new Error('Document path must be an array');
@@ -182,6 +185,17 @@
 			} else {
 				this.trigger('share:connected', this.shareDoc);
 			}
+		},
+
+		_inferSubDocTypes: function() {
+			this.subDocTypes = {};
+			_.each(_.pairs(this.attributes), function(pair) {
+				var k = pair[0], v = pair[1];
+
+				if (isShareModel(v)) {
+					subDocTypes[k] = Object.getPrototypeOf(v).constructor;
+				}
+			});
 		},
 
 		_sendModelChange: function() {
@@ -261,11 +275,6 @@
 		},
 
 		_handleOperation: function (op) {
-			if (this.isRoot && op.p.length <= 2 || _.isEqual(op.p, this.documentPath)) {
-				if (op.si || op.sd) this._handleStringOperation(op);
-				if (op.oi || op.od) this._handleObjectOperation(op);
-				if (op.na) this._handleNumberOperation(op);
-			}
 		},
 
 		_handleStringOperation: function(op) {
@@ -294,22 +303,20 @@
 		},
 
 		_handleObjectOperation: function(op) {
+			if (!_.isEqual(op.p.slice(0, op.p.length - 1), this.documentPath)) return;
+
 			var pathProp = op.p[op.p.length - 1],
-				obj = this.get(pathProp);
+				obj = this.get(pathProp),
+				subDocType = this.subDocTypes[pathProp];
 
 			if (op.oi || op.oi === false) {
-				if (isShareModel(obj)) {
-					obj.clear({local: true});
-					obj.set(op.oi, {local: true});
+				if (subDocType) {
+					this.set(pathProp, new subDocType(op.oi), {local: true});
 				} else {
 					this.set(pathProp, op.oi, {local: true});
 				}
 			} else {
-				if (isShareModel(obj)) {
-					obj.clear({local: true});
-				} else {
-					this.unset(pathProp, {local: true});
-				}
+				this.unset(pathProp, {local: true});
 			}
 		},
 
