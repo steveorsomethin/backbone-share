@@ -284,9 +284,14 @@
 		},
 
 		_handleOperation: function (op) {
+			if (op.si || op.sd) this._handleStringOperation(op);
+			if (op.oi || op.od) this._handleObjectOperation(op);
+			if (op.na) this._handleNumberOperation(op);
 		},
 
 		_handleStringOperation: function(op) {
+			if (!_.isEqual(op.p.slice(0, op.p.length - 2), this.documentPath)) return;
+
 			var pathProp = op.p[op.p.length - 2],
 				pathIndex = op.p[op.p.length - 1],
 				original = this.get(pathProp),
@@ -330,6 +335,8 @@
 		},
 
 		_handleNumberOperation: function(op) {
+			if (!_.isEqual(op.p.slice(0, op.p.length - 1), this.documentPath)) return;
+
 			var pathProp = op.p[op.p.length - 1],
 				currentValue = this.get(pathProp);
 
