@@ -27,7 +27,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit si operation when adding text', function(done) {
 		new TestParentModel().get('objTest').share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest', 'strTest', 7], si: 'hij'}]);
 					expect(model.shareDoc.snapshot.objTest).to.eql(model.toJSON());
@@ -41,7 +41,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit sd operation when deleting text', function(done) {
 		new TestParentModel().get('objTest').share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest', 'strTest', 6], sd: 'g'}]);
 					expect(model.shareDoc.snapshot.objTest).to.eql(model.toJSON());
@@ -55,7 +55,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit si and sd operations when replacing text', function(done) {
 		new TestParentModel().get('objTest').share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([
 						{p: ['objTest', 'strTest', 2], sd: 'cde'}, 
@@ -72,7 +72,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit oi and od operations when setting value to true', function(done) {
 		new TestParentModel().get('objTest').share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest', 'boolTest'], od: false, oi: true}]);
 					expect(model.shareDoc.snapshot.objTest).to.eql(model.toJSON());
@@ -86,7 +86,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit positive na operation when increasing a number', function(done) {
 		new TestParentModel().get('objTest').share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest', 'numTest'], na: 50}]);
 					expect(model.shareDoc.snapshot.objTest).to.eql(model.toJSON());
@@ -100,7 +100,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit positive na operation when decreasing a number', function(done) {
 		new TestParentModel().get('objTest').share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest', 'numTest'], na: -50}]);
 					expect(model.shareDoc.snapshot.objTest).to.eql(model.toJSON());
@@ -114,7 +114,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit oi operation when setting a child SharedModel', function(done) {
 		new TestParentModel().share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest2'], oi: model.get('objTest2').toJSON()}]);
 					expect(model.shareDoc.snapshot.objTest2).to.eql(model.get('objTest2').toJSON());
@@ -131,7 +131,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit od operation when unsetting a child SharedModel', function(done) {
 		new TestParentModel().share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest'], od: model.previous('objTest').toJSON()}]);
 					expect(model.shareDoc.snapshot.objTest).to.eql(undefined);
@@ -145,7 +145,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit oi and od operations when replacing a child SharedModel', function(done) {
 		new TestParentModel().share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{
 						p: ['objTest'], 
@@ -166,7 +166,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit oi operation when setting a child JS object', function(done) {
 		new TestParentModel().share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest2'], oi: model.get('objTest2')}]);
 					expect(model.shareDoc.snapshot.objTest2).to.eql(model.get('objTest2'));
@@ -185,7 +185,7 @@ describe('SharedModel - hierarchical', function() {
 			objTest: new TestChildModel().toJSON()
 		}).share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{p: ['objTest'], od: model.previous('objTest')}]);
 					expect(model.shareDoc.snapshot.objTest).to.eql(undefined);
@@ -199,7 +199,7 @@ describe('SharedModel - hierarchical', function() {
 	it('should emit oi and od operations when replacing a child JS object', function(done) {
 		new TestParentModel().share(function(error, root) {
 			var model = this;
-			model.shareDoc.on('change', function(ops) {
+			this.shareDoc.on('change', function(ops) {
 				asyncAssert(done, function() {
 					expect(ops).to.eql([{
 						p: ['objTest'], 
@@ -333,20 +333,91 @@ describe('SharedModel - hierarchical', function() {
 		});
 	});
 
-	// it('should emit od and oi operations on undo of setting a SharedModel', function(done) {
-	// 	new TestParentModel().on('share:connected', function(model.shareDoc) {
-	// 		var model = this;
+	it('should emit od and oi operations on undo of setting a SharedModel', function(done) {
+		new TestParentModel().share(function(error, root) {
+			var model = this,
+				newModel = new TestChildModel();
 
-	// 		this.set('objTest', new TestChildModel({}, ));
+			this.set('objTest', newModel);
 
-	// 		model.shareDoc.on('change', function(ops) {
-	// 			asyncAssert(done, function() {
-	// 				expect(ops).to.eql([{p: ['boolTest'], od: true, oi: false}]);
-	// 				expect(model.shareDoc.snapshot).to.eql(model.toJSON());
-	// 			});
-	// 		});
+			this.shareDoc.on('change', function(ops) {
+				asyncAssert(done, function() {
+					expect(ops).to.eql([{
+						p: ['objTest'],
+						od: newModel.toJSON(),
+						oi: model.get('objTest').toJSON()
+					}]);
+					expect(model.shareDoc.snapshot.objTest).to.eql(model.get('objTest').toJSON());
+				});
+			});
 
-	// 		this.undo();
-	// 	});
-	// });
+			this.undo();
+		});
+	});
+
+	it('should emit od and oi operations on redo of setting a SharedModel', function(done) {
+		new TestParentModel().share(function(error, root) {
+			var model = this,
+				newModel = new TestChildModel();
+
+			this.set('objTest', newModel);
+			this.undo();
+			newModel = this.get('objTest');
+
+			this.shareDoc.on('change', function(ops) {
+				asyncAssert(done, function() {
+					expect(ops).to.eql([{
+						p: ['objTest'],
+						od: newModel.toJSON(),
+						oi: model.get('objTest').toJSON()
+					}]);
+					expect(model.shareDoc.snapshot.objTest).to.eql(model.get('objTest').toJSON());
+				});
+			});
+
+			this.redo();
+		});
+	});
+
+	it('should emit oi operation on undo of unsetting a SharedModel', function(done) {
+		new TestParentModel().share(function(error, root) {
+			var model = this;
+
+			this.unset('objTest');
+
+			this.shareDoc.on('change', function(ops) {
+				asyncAssert(done, function() {
+					expect(ops).to.eql([{
+						p: ['objTest'],
+						oi: model.get('objTest').toJSON()
+					}]);
+					expect(model.shareDoc.snapshot.objTest).to.eql(model.get('objTest').toJSON());
+				});
+			});
+
+			this.undo();
+		});
+	});
+
+	it('should emit od operation on redo of unsetting a SharedModel', function(done) {
+		new TestParentModel().share(function(error, root) {
+			var model = this,
+				oldModel = this.get('objTest');
+
+			this.unset('objTest');
+			this.undo();
+
+			this.shareDoc.on('change', function(ops) {
+				asyncAssert(done, function() {
+					expect(ops).to.eql([{
+						p: ['objTest'],
+						od: oldModel.toJSON()
+					}]);
+					expect(model.shareDoc.snapshot.objTest).to.eql(undefined);
+				});
+			});
+
+			this.redo();
+		});
+	});
 });
