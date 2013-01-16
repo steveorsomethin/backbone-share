@@ -8,6 +8,8 @@
 
 	var diff = (function() {
 		//The following two methods were lifted from http://code.google.com/p/google-diff-match-patch/
+		//TODO: Look into adapting more of the diff algorithm to make more efficient patches 
+		//**	when there are multiple, non-sequential updates to a string
 		var diff_commonPrefix = function(text1, text2) {
 			// Quick check for common null cases.
 			if (!text1 || !text2 || text1.charAt(0) != text2.charAt(0)) {
@@ -111,6 +113,8 @@
 			this.defaults = this.defaults || {};
 			this.documentPath = options.documentPath || this.generateDocumentPath();
 			this.pendingOperations = [];
+			this.undoStack = [];
+			this.undoIndex = -1;
 
 			if (!this.subDocTypes) {
 				this._inferSubDocTypes();
@@ -138,6 +142,30 @@
 					return self._sendModelChange(options);
 				}
 			});
+		},
+
+		undo: function() {
+			var ops;
+			if (this.undoStack.length && this.undoIndex >= 0 ) {
+				ops = this.undoStack[this.undoIndex--]; 
+				this._undoRedo(this.shareDoc.type.invert(ops));
+			}
+		},
+
+		redo: function() {
+			if (this.undoStack.length) {
+				this._undoRedo(this.undoStack[++this.undoIndex]);
+			}
+		},
+
+		_undoRedo: function(ops) {
+			var self = this;
+
+			_.each(ops, function(op) {
+				self._handleOperation(op, {undo: true});
+			});
+
+			this.shareDoc.submitOp(ops);
 		},
 
 		setParent: function(parent) {
@@ -207,7 +235,7 @@
 			});
 		},
 
-		_sendModelChange: function() {
+		_sendModelChange: function(options) {
 			var self = this;
 
 			var ops = [];
@@ -271,6 +299,16 @@
 				return ops.push(result);
 			});
 
+			if (!options || !options.undo) {
+				if (this.undoStack.length && this.undoIndex !== this.undoStack.length - 1) {
+					this.undoStack = this.undoStack.slice(0, Math.max(0, this.undoIndex + 1));
+					this.undoIndex = this.undoStack.length - 1;
+				}
+
+				this.undoStack.push(ops);
+				this.undoIndex++;
+			}
+
 			if (this.shareDoc) {
 				console.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, function(error, ops) {
@@ -283,25 +321,28 @@
 			}
 		},
 
-		_handleOperation: function (op) {
-			if (op.si || op.sd) this._handleStringOperation(op);
-			if (op.oi || op.od) this._handleObjectOperation(op);
-			if (op.na) this._handleNumberOperation(op);
+		_handleOperation: function (op, options) {
+			if (op.si || op.sd) this._handleStringOperation(op, options);
+			if (op.oi || op.od) this._handleObjectOperation(op, options);
+			if (op.na) this._handleNumberOperation(op, options);
 		},
 
-		_handleStringOperation: function(op) {
+		_handleStringOperation: function(op, options) {
 			if (!_.isEqual(op.p.slice(0, op.p.length - 2), this.documentPath)) return;
 
 			var pathProp = op.p[op.p.length - 2],
 				pathIndex = op.p[op.p.length - 1],
 				original = this.get(pathProp),
 				modified, deleted;
-			
+
+			options = options || {};
+			options.local = true;
+
 			if (op.si) {
 				this.set(
 					pathProp,
 					original.slice(0, pathIndex) + op.si + original.slice(pathIndex),
-					{local: true}
+					options
 				);
 			}
 
@@ -312,35 +353,41 @@
 				}
 				modified = original.slice(0, pathIndex) + original.slice(pathIndex + op.sd.length);
 
-				this.set(pathProp, modified, {local: true});
+				this.set(pathProp, modified, options);
 			}
 		},
 
-		_handleObjectOperation: function(op) {
+		_handleObjectOperation: function(op, options) {
 			if (!_.isEqual(op.p.slice(0, op.p.length - 1), this.documentPath)) return;
 
 			var pathProp = op.p[op.p.length - 1],
 				obj = this.get(pathProp),
 				subDocType = this.subDocTypes[pathProp];
 
+			options = options || {};
+			options.local = true;
+
 			if (op.oi || op.oi === false) {
 				if (subDocType) {
-					this.set(pathProp, new subDocType(op.oi), {local: true});
+					this.set(pathProp, new subDocType(op.oi), options);
 				} else {
-					this.set(pathProp, op.oi, {local: true});
+					this.set(pathProp, op.oi, options);
 				}
 			} else {
-				this.unset(pathProp, {local: true});
+				this.unset(pathProp, options);
 			}
 		},
 
-		_handleNumberOperation: function(op) {
+		_handleNumberOperation: function(op, options) {
 			if (!_.isEqual(op.p.slice(0, op.p.length - 1), this.documentPath)) return;
 
 			var pathProp = op.p[op.p.length - 1],
 				currentValue = this.get(pathProp);
 
-			this.set(pathProp, currentValue + op.na, {local: true});
+			options = options || {};
+			options.local = true;
+
+			this.set(pathProp, currentValue + op.na, options);
 		}
 	});
 
