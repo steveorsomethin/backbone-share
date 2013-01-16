@@ -177,6 +177,21 @@
 			} else {
 				this.parent.share(callback, caller || this);
 			}
+
+			return this;
+		},
+
+		unshare: function() {
+			if (!this.shareDoc) return this;
+
+			if (!this.parent) {
+				this.shareDoc.close();
+			} else {
+				this.parent.unshare();
+			}
+
+			this.shareDoc.removeListener('remoteop', this._onRemoteOp);
+			this.shareDoc = null;
 		},
 
 		undo: function() {
@@ -185,12 +200,16 @@
 				ops = this.undoStack[this.undoIndex--]; 
 				this._undoRedo(this.shareDoc.type.invert(ops));
 			}
+
+			return this;
 		},
 
 		redo: function() {
 			if (this.undoStack.length) {
 				this._undoRedo(this.undoStack[++this.undoIndex]);
 			}
+
+			return this;
 		},
 
 		_undoRedo: function(ops) {
@@ -220,6 +239,14 @@
 			}
 		},
 
+		_onRemoteOp: function(ops) {
+			_.each(ops, function(op, i) {
+				if (_.isEqual(op.p, self.documentPath)) {
+					this._handleOperation(op);
+				}
+			});
+		},
+
 		_initShareDoc: function(shareDoc) {
 			var self = this, attributes;
 
@@ -234,13 +261,7 @@
 				shareDoc.created = false;
 			}
 
-			shareDoc.on('remoteop', function(ops) {
-				_.each(ops, function(op, i) {
-					if (_.isEqual(op.p, self.documentPath)) {
-						this._handleOperation(op);
-					}
-				});
-			});
+			shareDoc.on('remoteop', this._onRemoteOp);
 
 			if (this.pendingOperations.length) {
 				shareDoc.submitOp(this.pendingOperations, function(error) {
@@ -404,6 +425,10 @@
 				}
 			} else {
 				this.unset(pathProp, options);
+				if (subDocType) {
+					obj.parent = null;
+					obj.unshare();
+				}
 			}
 		},
 
