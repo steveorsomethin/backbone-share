@@ -7,9 +7,11 @@
 	//TODO: Ensure the above imports are resolved and work in node.js
 
 	var diff = (function() {
+		/* 
+		* TODO: Look into adapting more of the diff algorithm to make more efficient patches 
+		*		when there are multiple, non-sequential updates to a string
+		*/
 		//The following two methods were lifted from http://code.google.com/p/google-diff-match-patch/
-		//TODO: Look into adapting more of the diff algorithm to make more efficient patches 
-		//**	when there are multiple, non-sequential updates to a string
 		var diff_commonPrefix = function(text1, text2) {
 			// Quick check for common null cases.
 			if (!text1 || !text2 || text1.charAt(0) != text2.charAt(0)) {
@@ -99,6 +101,18 @@
 		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
+	var attachSubModels = function(attributes) {
+		var self = this;
+
+		_.each(_.pairs(attributes), function(pair) {
+			var k = pair[0], v = pair[1];
+
+			if (isShareModel(v)) {
+				v._setParent(self, [k]);
+			}
+		});
+	};
+
 	Backbone.SharedModel = Backbone.Model.extend({
 		constructor: function(attr, options) {
 			Backbone.Model.prototype.constructor.apply(this, arguments);
@@ -106,12 +120,11 @@
 			var self = this;
 
 			attr = attr || {};
-			options = options || {};
 
 			this.set('id', attr.id || generateGUID());
 			
 			this.defaults = this.defaults || {};
-			this.documentPath = options.documentPath || this.generateDocumentPath();
+			this.documentPath = this.generateDocumentPath();
 			this.pendingOperations = [];
 			this.undoStack = [];
 			this.undoIndex = -1;
@@ -124,24 +137,45 @@
 				throw new Error('Document path must be an array');
 			}
 
-			if (options.parent) {
-				this.setParent(options.parent);
-			} else if (!options.defer) {
-				this.isRoot = true;
-				this.documentName = options.documentName || this.generateDocumentName();
-				sharejs.open(this.documentName, 'json', function(err, doc) {
-					if (err) throw err;
-
-					console.log('Opened document "' + self.documentName + '"');
-					self.initShareDoc(doc);
-				});
-			}
+			attachSubModels.call(this, this.attributes);
 
 			this.on("change", function(model, options) {
+				console.log(this.changedAttributes());
 				if (!options || !options.local) {
 					return self._sendModelChange(options);
 				}
+
+				attachSubModels.call(this, this.changedAttributes());
 			});
+		},
+
+		generateDocumentPath: function() {
+			return [];
+		},
+
+		generateDocumentName: function() {
+			return this.get('id');
+		},
+
+		share: function(callback, caller) {
+			if (this.shareDoc) return callback.call(this, null, this);
+
+			var self = this;
+
+			if (!this.parent) {
+				this.documentName = this.generateDocumentName();
+				sharejs.open(this.documentName, 'json', function(error, doc) {
+					console.log('Opened document "' + self.documentName + '"');
+
+					self.once('share:connected', function() {
+						callback.call(caller || self, error, self);
+					});
+
+					self._initShareDoc(doc);
+				});
+			} else {
+				this.parent.share(callback, caller || this);
+			}
 		},
 
 		undo: function() {
@@ -168,31 +202,24 @@
 			this.shareDoc.submitOp(ops);
 		},
 
-		setParent: function(parent) {
+		_setParent: function(parent, path) {
 			var self = this;
 
 			this.parent = parent;
 
+			//TODO: Call this.generateDocumentPath with parent instead
+			this.documentPath = parent.generateDocumentPath().concat(path);
+
 			if (this.parent.shareDoc) {
-				this.isRoot = false;
-				this.initShareDoc(this.parent.shareDoc);
+				this._initShareDoc(this.parent.shareDoc);
 			} else {
 				this.parent.on('share:connected', function(shareDoc) {
-					self.isRoot = false;
-					self.initShareDoc(shareDoc);
+					self._initShareDoc(shareDoc);
 				});
 			}
 		},
 
-		generateDocumentPath: function() {
-			return [];
-		},
-
-		generateDocumentName: function() {
-			return this.get('id');
-		},
-
-		initShareDoc: function(shareDoc) {
+		_initShareDoc: function(shareDoc) {
 			var self = this, attributes;
 
 			if (shareDoc.type.name !== 'json') {
@@ -225,12 +252,13 @@
 		},
 
 		_inferSubDocTypes: function() {
+			var self = this;
 			this.subDocTypes = {};
 			_.each(_.pairs(this.attributes), function(pair) {
 				var k = pair[0], v = pair[1];
 
 				if (isShareModel(v)) {
-					subDocTypes[k] = Object.getPrototypeOf(v).constructor;
+					self.subDocTypes[k] = Object.getPrototypeOf(v).constructor;
 				}
 			});
 		},
@@ -392,12 +420,12 @@
 	});
 
 	// Collection path should be a simple name?
-	// Need to come up with undo-redo
 	// Need to validate models
 	// Error handling on submitOp
 	// Verify re-opening works
 	// Clean up parent/child reference cycles
 	// Connect parent/child on set
+	// Need to handle connectivity on undo/redo
 
 	Backbone.SharedCollection = Backbone.Collection.extend({
 		constructor: function(models, options) {
@@ -414,16 +442,14 @@
 			}
 
 			if (options.shareDoc) {
-				this.isRoot = false;
-				this.initShareDoc(options.shareDoc);
+				this._initShareDoc(options.shareDoc);
 			} else {
-				this.isRoot = true;
 				this.documentName = options.documentName || this.generateDocumentName();
 				sharejs.open(this.documentName, 'json', function(err, doc) {
 					if (err) throw err;
 
 					console.log('Opened document "' + self.documentName + '"');
-					self.initShareDoc(doc);
+					self._initShareDoc(doc);
 				});
 			}
 		},
@@ -436,7 +462,7 @@
 			return generateGUID();
 		},
 
-		initShareDoc: function(shareDoc) {
+		_initShareDoc: function(shareDoc) {
 			var self = this;
 
 			if (shareDoc.type.name !== 'json') {
