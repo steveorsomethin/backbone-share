@@ -158,7 +158,7 @@
 		},
 
 		share: function(callback, caller) {
-			if (this.shareDoc) return callback.call(this, null, this);
+			if (this.shareDoc) return callback ? callback.call(this, null, this) : this;
 
 			var self = this;
 
@@ -168,7 +168,8 @@
 					console.log('Opened document "' + self.documentName + '"');
 
 					self.once('share:connected', function() {
-						callback.call(caller || self, error, self);
+						if (callback) 
+							callback.call(caller || self, error, self);
 					});
 
 					self._initShareDoc(doc);
