@@ -3,14 +3,13 @@
 // Clean up parent/child reference cycles
 // Need to handle connectivity on undo/redo
 // List move?
-// Detach children of collections on remove
+// Detach children on remove
 
 (function(){
 	var root = this,
 		Backbone = root.Backbone,
 		sharejs = root.sharejs,
 		_ = root._;
-	//TODO: Ensure the above imports are resolved and work in node.js
 
 	var diff = (function() {
 		/* 
@@ -107,7 +106,7 @@
 		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
-	var UndoContext = Backbone.UndoContext = function() {
+	var UndoContext = function() {
 		this.stack = [];
 		this.index = -1;
 	};
@@ -140,19 +139,23 @@
 
 		_undoRedo: function(model, ops) {
 			var offset = 1,
+				root = model,
 				path;
 
+			while (model.parent) {
+				root = model = model.parent;
+			}
+
 			_.each(ops, function(op) {
-				if (op.si || op.sd || op.li || op.ld || op.lm) {
+				if (op.si || op.sd) {
 					offset = 2;
 				}
 
-				path = op.p.slice(0, op.p.length - offset);
-				
-				model.getAt(path)._handleOperation(op, {undo: true});
+				path = op.p.slice(0, op.p.length - offset).reverse();
+				root.getAt(path)._handleOperation(op, {undo: true});
 			});
 
-			model.shareDoc.submitOp(ops);
+			root.shareDoc.submitOp(ops);
 		}
 	});
 
@@ -212,7 +215,6 @@
 
 		getAt: function(path) {
 			var currentModel = this;
-			path.reverse();
 
 			while (path.length) {
 				currentModel = currentModel._getAtPathPart(path.pop());
@@ -293,7 +295,7 @@
 			this.stopListening(this.parent);
 
 			this.documentPath = this.generateDocumentPath();
-			this.undoContext = new UndoContext(this);
+			this.undoContext = new UndoContext();
 			this.parent = null;
 			this.shareDoc = null;
 
@@ -328,7 +330,7 @@
 			this.defaults = this.defaults || {};
 			this.documentPath = this.generateDocumentPath();
 			this.pendingOperations = [];
-			this.undoContext = new UndoContext(this);
+			this.undoContext = new UndoContext();
 
 			if (!this.subDocTypes) {
 				this._inferSubDocTypes();
@@ -541,7 +543,7 @@
 
 			this.documentPath = this.generateDocumentPath();
 			this.pendingOperations = [];
-			this.undoContext = new UndoContext(this);
+			this.undoContext = new UndoContext();
 
 			Backbone.Collection.prototype.constructor.apply(this, arguments);
 
@@ -658,6 +660,7 @@
 	_.extend(sharedModelProto, common);
 	_.extend(sharedCollectionProto, common);
 
+	Backbone.UndoContext = UndoContext;
 	Backbone.SharedModel = Backbone.Model.extend(sharedModelProto);
 	Backbone.SharedCollection = Backbone.Collection.extend(sharedCollectionProto);
 
