@@ -152,6 +152,7 @@
 
 		undo: function() {
 			var ops;
+
 			if (this.undoStack.length && this.undoIndex >= 0 ) {
 				ops = this.undoStack[this.undoIndex--]; 
 				this._undoRedo(this.shareDoc.type.invert(ops));
@@ -252,9 +253,10 @@
 		},
 
 		_onRemoteOp: function(ops) {
+			var self = this;
 			_.each(ops, function(op, i) {
 				if (_.isEqual(op.p, self.documentPath)) {
-					this._handleOperation(op);
+					self._handleOperation(op);
 				}
 			});
 		},
@@ -529,9 +531,10 @@
 		},
 
 		_onRemoteOp: function(ops) {
+			var self = this;
 			_.each(ops, function(op, i) {
 				if (_.isEqual(op.p.slice(0, op.p.length - 1), self.documentPath)) {
-					this._handleOperation(op);
+					self._handleOperation(op);
 				}
 			});
 		},
