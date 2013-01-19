@@ -227,7 +227,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['objTest', 'strTest', 7], si: 'hij'});
+				this._onRemoteOp([{p: ['objTest', 'strTest', 7], si: 'hij'}]);
 			});
 		});
 
@@ -240,7 +240,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['objTest', 'strTest', 2], sd: 'cd'});
+				this._onRemoteOp([{p: ['objTest', 'strTest', 2], sd: 'cd'}]);
 			});
 		});
 
@@ -253,7 +253,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['objTest', 'boolTest'], od: false, oi: true});
+				this._onRemoteOp([{p: ['objTest', 'boolTest'], od: false, oi: true}]);
 			});
 		});
 
@@ -268,7 +268,7 @@
 					});
 				});
 
-				model._handleOperation({p: ['objTest', 'boolTest'], od: true, oi: false});
+				this._onRemoteOp([{p: ['objTest', 'boolTest'], od: true, oi: false}]);
 			});
 		});
 
@@ -281,7 +281,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['objTest', 'numTest'], na: 50});
+				this._onRemoteOp([{p: ['objTest', 'numTest'], na: 50}]);
 			});
 		});
 
@@ -294,7 +294,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['objTest', 'numTest'], na: -50});
+				this._onRemoteOp([{p: ['objTest', 'numTest'], na: -50}]);
 			});
 		});
 
@@ -309,10 +309,10 @@
 					});
 				});
 
-				this._handleOperation({
+				this._onRemoteOp([{
 					p: ['objTest'],
 					oi: newModel.toJSON()
-				});
+				}]);
 			});
 		});
 
@@ -327,10 +327,10 @@
 					});
 				});
 
-				this._handleOperation({
+				this._onRemoteOp([{
 					p: ['objTest'],
 					od: this.get('objTest').toJSON(),
-				});
+				}]);
 			});
 		});
 

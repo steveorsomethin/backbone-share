@@ -188,7 +188,7 @@
 					});
 				});
 
-				this._handleOperation({p: [1], li: newModel.toJSON()});
+				this._onRemoteOp([{p: [1], li: newModel.toJSON()}]);
 			});
 		});
 
@@ -204,7 +204,7 @@
 					});
 				});
 
-				this._handleOperation({p: [0], ld: this.at(0).toJSON()});
+				this._onRemoteOp([{p: [0], ld: this.at(0).toJSON()}]);
 			});
 		});
 	});
