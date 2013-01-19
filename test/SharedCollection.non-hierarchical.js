@@ -11,20 +11,9 @@
 		model: TestChildModel
 	});
 
-	var TestParentModel = Backbone.SharedModel.extend({
-		defaults: function() {
-			return {
-				strTest: 'abcdefg',
-				boolTest: false,
-				numTest: 50,
-				objTest: new TestCollection()
-			};
-		}
-	});
-
-	describe('SharedCollection', function() {
+	describe('SharedCollection - non-hierarchical', function() {
 		before(function(done) {
-			new TestParentModel().get('objTest').share(function(error, root) {
+			new TestCollection().share(function(error, root) {
 				done();
 			});
 		});
