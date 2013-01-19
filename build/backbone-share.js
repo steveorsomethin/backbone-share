@@ -1,3 +1,10 @@
+// Collection path should be a simple name?
+// Need to validate models
+// Error handling on submitOp
+// Verify re-opening works
+// Clean up parent/child reference cycles
+// Need to handle connectivity on undo/redo
+// List inserts at specific locations could mangle things
 
 (function(){
 	var root = this,
@@ -101,60 +108,9 @@
 		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
-	var attachSubModels = function(attributes) {
-		var self = this;
-
-		_.each(_.pairs(attributes), function(pair) {
-			var k = pair[0], v = pair[1];
-
-			if (isShareModel(v)) {
-				v._setParent(self, [k]);
-			}
-		});
-	};
-
-	Backbone.SharedModel = Backbone.Model.extend({
-		constructor: function(attr, options) {
-			Backbone.Model.prototype.constructor.apply(this, arguments);
-
-			var self = this;
-
-			attr = attr || {};
-
-			this.set('id', attr.id || generateGUID());
-			
-			this.defaults = this.defaults || {};
-			this.documentPath = this.generateDocumentPath();
-			this.pendingOperations = [];
-			this.undoStack = [];
-			this.undoIndex = -1;
-
-			if (!this.subDocTypes) {
-				this._inferSubDocTypes();
-			}
-
-			if (!Array.isArray(this.documentPath)) {
-				throw new Error('Document path must be an array');
-			}
-
-			attachSubModels.call(this, this.attributes);
-
-			this.on("change", function(model, options) {
-				console.log(this.changedAttributes());
-				if (!options || !options.local) {
-					return self._sendModelChange(options);
-				}
-
-				attachSubModels.call(this, this.changedAttributes());
-			});
-		},
-
+	var common = {
 		generateDocumentPath: function() {
 			return [];
-		},
-
-		generateDocumentName: function() {
-			return this.get('id');
 		},
 
 		share: function(callback, caller) {
@@ -189,7 +145,7 @@
 			} else {
 				this.parent.unshare();
 			}
-
+			
 			this.shareDoc.removeListener('remoteop', this._onRemoteOp);
 			this.shareDoc = null;
 		},
@@ -237,6 +193,62 @@
 					self._initShareDoc(shareDoc);
 				});
 			}
+		},
+
+		_submitHandler: function(error) {
+			if (error) throw error;
+		}
+	};
+
+	var sharedModelProto = {
+		constructor: function(attr, options) {
+			Backbone.Model.prototype.constructor.apply(this, arguments);
+
+			var self = this;
+
+			attr = attr || {};
+
+			this.set('id', attr.id || generateGUID());
+			
+			this.defaults = this.defaults || {};
+			this.documentPath = this.generateDocumentPath();
+			this.pendingOperations = [];
+			this.undoStack = [];
+			this.undoIndex = -1;
+
+			if (!this.subDocTypes) {
+				this._inferSubDocTypes();
+			}
+
+			if (!Array.isArray(this.documentPath)) {
+				throw new Error('Document path must be an array');
+			}
+
+			this._attachSubModels(this.attributes);
+
+			this.on("change", function(model, options) {
+				if (!options || !options.local) {
+					return self._sendModelChange(options);
+				}
+
+				this._attachSubModels(this.changedAttributes());
+			});
+		},
+
+		generateDocumentName: function() {
+			return this.get('id');
+		},
+
+		_attachSubModels: function(attributes) {
+			var self = this;
+
+			_.each(_.pairs(attributes), function(pair) {
+				var k = pair[0], v = pair[1];
+
+				if (isShareModel(v)) {
+					v._setParent(self, [k]);
+				}
+			});
 		},
 
 		_onRemoteOp: function(ops) {
@@ -361,13 +373,9 @@
 
 			if (this.shareDoc) {
 				console.log('Sending:', ops);
-				this.shareDoc.submitOp(ops, function(error, ops) {
-					//self.shareDoc.submitOp(self.shareDoc.type.invert(ops), function() {
-						console.log(arguments);
-					//});
-				});
+				this.shareDoc.submitOp(ops, this._submitHandler);
 			} else {
-				Array.prototype.push(pendingOperations, ops);
+				Array.prototype.push.apply(this.pendingOperations, ops);
 			}
 		},
 
@@ -443,25 +451,21 @@
 
 			this.set(pathProp, currentValue + op.na, options);
 		}
-	});
+	};
 
-	// Collection path should be a simple name?
-	// Need to validate models
-	// Error handling on submitOp
-	// Verify re-opening works
-	// Clean up parent/child reference cycles
-	// Connect parent/child on set
-	// Need to handle connectivity on undo/redo
-
-	Backbone.SharedCollection = Backbone.Collection.extend({
+	var sharedCollectionProto = {
 		constructor: function(models, options) {
+			this.documentPath = this.generateDocumentPath();
+			this.pendingOperations = [];
+
 			Backbone.Collection.prototype.constructor.apply(this, arguments);
 
 			var self = this;
 
 			options = options || {};
 
-			this.documentPath = options.documentPath || this.generateDocumentPath();
+			this.undoStack = [];
+			this.undoIndex = -1;
 
 			if (!Array.isArray(this.documentPath)) {
 				throw new Error('Document path must be an array');
@@ -480,12 +484,56 @@
 			}
 		},
 
+		add: function(models, options) {
+			Backbone.Collection.prototype.add.apply(this, arguments);
+
+			models =  models = _.isArray(models) ? models.slice() : [models];
+
+			this._attachSubModels(models, options);
+		},
+
+		remove: function(models, options) {
+			var ops;
+			models =  models = _.isArray(models) ? models.slice() : [models];
+
+			if (!options || !options.local) {
+				ops = this._prepareListChanges(models, 'remove');
+			}
+
+			if (ops) {
+				this._sendOps(ops, this._submitHandler);
+			}
+
+			Backbone.Collection.prototype.remove.apply(this, arguments);
+		},
+
 		generateDocumentPath: function() {
 			return [];
 		},
 
 		generateDocumentName: function() {
 			return generateGUID();
+		},
+
+		_attachSubModels: function(models, options) {
+			var self = this;
+
+			if (!options || !options.local) {
+				return this._sendOps(this._prepareListChanges(models, 'add'),
+					this._submitHandler);
+			}
+
+			_.each(models, function(model) {
+				model._setParent(self, [self.indexOf(model)]);
+			});
+		},
+
+		_onRemoteOp: function(ops) {
+			_.each(ops, function(op, i) {
+				if (_.isEqual(op.p.slice(0, op.p.length - 1), self.documentPath)) {
+					this._handleOperation(op);
+				}
+			});
 		},
 
 		_initShareDoc: function(shareDoc) {
@@ -498,67 +546,77 @@
 			this.shareDoc = shareDoc;
 
 			if (shareDoc.created) {
-				shareDoc.submitOp([{p: [], oi: this.toJSON()}]);
+				shareDoc.submitOp([{p: [], oi: []}], this._submitHandler);
+				shareDoc.created = false;
 			}
 
-			shareDoc.on('remoteop', function(ops) {
-				_.each(ops, function(op, i) {
-					if (_.isEqual(op.p, self.documentPath)) {
-						this._handleListOperation(op);
-					}
+			shareDoc.on('remoteop', this._onRemoteOp);
+
+			if (this.pendingOperations.length) {
+				this.shareDoc.submitOp(this.pendingOperations, function(error) {
+					if (!error) self.pendingOperations.length = 0;
+					self.trigger('share:connected', self.shareDoc);
 				});
-			});
+			} else {
+				this.trigger('share:connected', this.shareDoc);
+			}
+		},
 
-			this.on("add", function(model, options) {
-				if (!options || !options.local) {
-					return self._sendModelAdd(options);
+		_prepareListChanges: function(models, type) {
+			var self = this;
+			var ops = _.map(models, function(model) {
+				var op = {
+					p: self.documentPath.concat([self.indexOf(model)])
 				}
-			});
 
-			this.on("remove", function(model, options) {
-				if (!options || !options.local) {
-					return self._sendModelRemove(options);
+				switch (type) {
+					case 'add':
+						op.li = model.toJSON();
+						break;
+					case 'remove':
+						op.ld = model.toJSON();
+						break;
+					default:
+						throw new Error('Unrecognized list operation type: ' + type);
 				}
+
+				return op;
 			});
+
+			//Work backwards so that ld operations don't corrupt the snapshot due to splicing
+			if (type === 'remove') {
+				ops = _.sortBy(ops, function(op) {
+					return -op.p[op.p.length - 1];
+				});
+			}
+
+			return ops;
 		},
 
-		_sendModelAdd: function(model, options) {
-			var ops = [{
-				p: this.documentPath.concat(
-					[options && options.at ? options.at : this.length - 1]),
-				li: model.toJSON()
-			}];
-
-			this.shareDoc.submitOp(ops, function(error, ops) {
-				//self.shareDoc.submitOp(self.shareDoc.type.invert(ops), function() {
-					console.log(arguments);
-				//});
-			});
+		_sendOps: function(ops, callback) {
+			if (this.shareDoc) {
+				console.log('Sending:', ops);
+				this.shareDoc.submitOp(ops, callback);
+			} else {
+				Array.prototype.push.apply(this.pendingOperations, ops);
+			}
 		},
 
-		_sendModelRemove: function(model, options) {
-			var ops = [{
-				p: this.documentPath.concat(
-					[options && options.index ? options.index : this.length - 1]),
-				ld: model.toJSON()
-			}];
-
-			this.shareDoc.submitOp(ops, function(error, ops) {
-				//self.shareDoc.submitOp(self.shareDoc.type.invert(ops), function() {
-					console.log(arguments);
-				//});
-			});
-		},
-
-		_handleListOperation: function(op) {
+		_handleOperation: function(op) {
 			if (op.li) {
-				this.create(op.li, {local: true});
+				this.add(new this.model(op.li), {at: op.p[op.p.length - 1], local: true});
 			}
 
 			if (op.ld) {
-				this.remove(op.ld, {local: true});
+				this.remove(this.at(op.p[op.p.length - 1]), {local: true});
 			}
 		}
-	});
+	};
+
+	_.extend(sharedModelProto, common);
+	_.extend(sharedCollectionProto, common);
+
+	Backbone.SharedModel = Backbone.Model.extend(sharedModelProto);
+	Backbone.SharedCollection = Backbone.Collection.extend(sharedCollectionProto);
 
 }).call(this);
