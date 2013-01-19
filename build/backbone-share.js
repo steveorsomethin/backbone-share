@@ -84,7 +84,7 @@
 
 		return function( obj ) {
 			return obj == null ?
-				String(obj ):
+				String(obj):
 				class2type[Object.prototype.toString.call(obj)] || "object";
 		}
 	}).call(this);
