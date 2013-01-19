@@ -457,17 +457,16 @@
 
 	var sharedCollectionProto = {
 		constructor: function(models, options) {
+			var self = this;
+			
 			this.documentPath = this.generateDocumentPath();
 			this.pendingOperations = [];
+			this.undoStack = [];
+			this.undoIndex = -1;
 
 			Backbone.Collection.prototype.constructor.apply(this, arguments);
 
-			var self = this;
-
 			options = options || {};
-
-			this.undoStack = [];
-			this.undoIndex = -1;
 
 			if (!Array.isArray(this.documentPath)) {
 				throw new Error('Document path must be an array');
@@ -503,7 +502,7 @@
 			}
 
 			if (ops) {
-				this._sendOps(ops, this._submitHandler);
+				this._sendOps(ops, options, this._submitHandler);
 			}
 
 			Backbone.Collection.prototype.remove.apply(this, arguments);
@@ -522,7 +521,7 @@
 
 			if (!options || !options.local) {
 				return this._sendOps(this._prepareListChanges(models, 'add'),
-					this._submitHandler);
+					options, this._submitHandler);
 			}
 
 			_.each(models, function(model) {
@@ -596,12 +595,22 @@
 			return ops;
 		},
 
-		_sendOps: function(ops, callback) {
+		_sendOps: function(ops, options, callback) {
 			if (this.shareDoc) {
 				console.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, callback);
 			} else {
 				Array.prototype.push.apply(this.pendingOperations, ops);
+			}
+
+			if (!options || !options.undo) {
+				if (this.undoStack.length && this.undoIndex !== this.undoStack.length - 1) {
+					this.undoStack = this.undoStack.slice(0, Math.max(0, this.undoIndex + 1));
+					this.undoIndex = this.undoStack.length - 1;
+				}
+
+				this.undoStack.push(ops);
+				this.undoIndex++;
 			}
 		},
 
