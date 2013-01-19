@@ -220,7 +220,7 @@
 					expect(model.get('strTest')).to.eql('abcdefghij');
 					expect(model.shareDoc.snapshot).to.eql(model.toJSON());
 				
-					expect(model.undoStack).to.eql([
+					expect(model.undoContext.stack).to.eql([
 						[
 							{p: ['strTest', 2], sd: 'cde'},
 							{p: ['strTest', 2], si: '123'}
