@@ -2,6 +2,8 @@
 // Verify re-opening works
 // Clean up parent/child reference cycles
 // Need to handle connectivity on undo/redo
+// List move?
+// Detach children of collections on remove
 
 (function(){
 	var root = this,
@@ -105,11 +107,56 @@
 		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
-	var common = {
-		generateDocumentPath: function() {
-			return [];
+	var UndoContext = Backbone.UndoContext = function() {
+		this.stack = [];
+		this.index = -1;
+	};
+
+	_.extend(UndoContext.prototype, {
+		pushOps: function(ops) {
+			if (this.stack.length && this.index !== this.stack.length - 1) {
+				this.stack = this.stack.slice(0, Math.max(0, this.index + 1));
+				this.index = this.stack.length - 1;
+			}
+
+			this.stack.push(ops);
+			this.index++;
 		},
 
+		undo: function(model) {
+			var ops;
+
+			if (this.stack.length && this.index >= 0 ) {
+				ops = this.stack[this.index--]; 
+				this._undoRedo(model, model.shareDoc.type.invert(ops));
+			}
+		},
+
+		redo: function(model) {
+			if (this.stack.length) {
+				this._undoRedo(model, this.stack[++this.index]);
+			}
+		},
+
+		_undoRedo: function(model, ops) {
+			var offset = 1,
+				path;
+
+			_.each(ops, function(op) {
+				if (op.si || op.sd || op.li || op.ld || op.lm) {
+					offset = 2;
+				}
+
+				path = op.p.slice(0, op.p.length - offset);
+				
+				model.getAt(path)._handleOperation(op, {undo: true});
+			});
+
+			model.shareDoc.submitOp(ops);
+		}
+	});
+
+	var common = {
 		share: function(callback, caller) {
 			if (this.shareDoc) return callback ? callback.call(this, null, this) : this;
 
@@ -148,49 +195,109 @@
 		},
 
 		undo: function() {
-			var ops;
-
-			if (this.undoStack.length && this.undoIndex >= 0 ) {
-				ops = this.undoStack[this.undoIndex--]; 
-				this._undoRedo(this.shareDoc.type.invert(ops));
-			}
+			this.undoContext.undo(this);
 
 			return this;
 		},
 
 		redo: function() {
-			if (this.undoStack.length) {
-				this._undoRedo(this.undoStack[++this.undoIndex]);
-			}
+			this.undoContext.redo(this);
 
 			return this;
 		},
 
-		_undoRedo: function(ops) {
+		generateDocumentPath: function(parent, path) {
+			return parent ? parent.documentPath.concat(path) : [];
+		},
+
+		getAt: function(path) {
+			var currentModel = this;
+			path.reverse();
+
+			while (path.length) {
+				currentModel = currentModel._getAtPathPart(path.pop());
+			}
+
+			return currentModel;
+		},
+
+		_initShareDoc: function(shareDoc) {
 			var self = this;
 
-			_.each(ops, function(op) {
-				self._handleOperation(op, {undo: true});
-			});
+			if (shareDoc.type.name !== 'json') {
+				throw new Error('ShareJS document must be of type "json"');
+			}
 
-			this.shareDoc.submitOp(ops);
+			this.shareDoc = shareDoc;
+
+			if (shareDoc.created) {
+				shareDoc.submitOp([{p: [], od: null, oi: this._initialState()}], this._submitHandler);
+				shareDoc.created = false;
+			}
+
+			//Prevent redundant bindings
+			shareDoc.removeListener('remoteop', this._onRemoteOp);
+			shareDoc.on('remoteop', this._onRemoteOp);
+
+			if (this.pendingOperations.length) {
+				this.shareDoc.submitOp(this.pendingOperations, function(error) {
+					if (error) throw error;
+
+					self.pendingOperations.length = 0;
+					self.trigger('share:connected', self.shareDoc);
+				});
+			} else {
+				this.trigger('share:connected', this.shareDoc);
+			}
 		},
 
 		_setParent: function(parent, path) {
+			if (this.parent) {
+				this._detach();
+			}
+
+			if (parent) {
+				this._attach(parent, path);
+			}
+		},
+
+		_refreshHierarchy: function(parent, path) {
 			var self = this;
 
-			this.parent = parent;
+			this.documentPath = this.generateDocumentPath(parent, path);
 
-			//TODO: Call this.generateDocumentPath with parent instead
-			this.documentPath = parent.generateDocumentPath().concat(path);
+			this.undoContext = parent.undoContext;
 
-			if (this.parent.shareDoc) {
-				this._initShareDoc(this.parent.shareDoc);
+			if (parent.shareDoc) {
+				this._initShareDoc(parent.shareDoc);
 			} else {
-				this.parent.on('share:connected', function(shareDoc) {
+				this.listenTo(parent, 'share:connected', function(shareDoc) {
 					self._initShareDoc(shareDoc);
 				});
 			}
+		},
+
+		_attach: function(parent, path) {
+			this.parent = parent;
+
+			this._refreshHierarchy(parent, path);
+
+			this.listenTo(parent, 'attached detached', function() {
+				this._refreshHierarchy(parent, path);
+			});
+
+			this.trigger('attached');
+		},
+
+		_detach: function() {
+			this.stopListening(this.parent);
+
+			this.documentPath = this.generateDocumentPath();
+			this.undoContext = new UndoContext(this);
+			this.parent = null;
+			this.shareDoc = null;
+
+			this.trigger('detached');
 		},
 
 		_onRemoteOp: function(ops) {
@@ -221,8 +328,7 @@
 			this.defaults = this.defaults || {};
 			this.documentPath = this.generateDocumentPath();
 			this.pendingOperations = [];
-			this.undoStack = [];
-			this.undoIndex = -1;
+			this.undoContext = new UndoContext(this);
 
 			if (!this.subDocTypes) {
 				this._inferSubDocTypes();
@@ -247,6 +353,14 @@
 			return this.get('id');
 		},
 
+		_initialState: function() {
+			return this.toJSON();
+		},
+
+		_getAtPathPart: function(part) {
+			return this.get(part);
+		},
+
 		_attachSubModels: function(attributes) {
 			var self = this;
 
@@ -257,32 +371,6 @@
 					v._setParent(self, [k]);
 				}
 			});
-		},
-
-		_initShareDoc: function(shareDoc) {
-			var self = this, attributes;
-
-			if (shareDoc.type.name !== 'json') {
-				throw new Error('ShareJS document must be of type "json"');
-			}
-
-			this.shareDoc = shareDoc;
-
-			if (shareDoc.created) {
-				shareDoc.submitOp([{p: this.documentPath, od: null, oi: this.toJSON()}]);
-				shareDoc.created = false;
-			}
-
-			shareDoc.on('remoteop', this._onRemoteOp);
-
-			if (this.pendingOperations.length) {
-				shareDoc.submitOp(this.pendingOperations, function(error) {
-					if (!error) self.pendingOperations.length = 0;
-					this.trigger('share:connected', this.shareDoc);
-				});
-			} else {
-				this.trigger('share:connected', this.shareDoc);
-			}
 		},
 
 		_inferSubDocTypes: function() {
@@ -362,13 +450,7 @@
 			});
 
 			if (!options || !options.undo) {
-				if (this.undoStack.length && this.undoIndex !== this.undoStack.length - 1) {
-					this.undoStack = this.undoStack.slice(0, Math.max(0, this.undoIndex + 1));
-					this.undoIndex = this.undoStack.length - 1;
-				}
-
-				this.undoStack.push(ops);
-				this.undoIndex++;
+				this.undoContext.pushOps(ops);
 			}
 
 			if (this.shareDoc) {
@@ -434,7 +516,7 @@
 			} else {
 				this.unset(pathProp, options);
 				if (subDocType) {
-					obj.parent = null;
+					obj._setParent(null);
 					obj.unshare();
 				}
 			}
@@ -459,8 +541,7 @@
 
 			this.documentPath = this.generateDocumentPath();
 			this.pendingOperations = [];
-			this.undoStack = [];
-			this.undoIndex = -1;
+			this.undoContext = new UndoContext(this);
 
 			Backbone.Collection.prototype.constructor.apply(this, arguments);
 
@@ -468,18 +549,6 @@
 
 			if (!Array.isArray(this.documentPath)) {
 				throw new Error('Document path must be an array');
-			}
-
-			if (options.shareDoc) {
-				this._initShareDoc(options.shareDoc);
-			} else {
-				this.documentName = options.documentName || this.generateDocumentName();
-				sharejs.open(this.documentName, 'json', function(err, doc) {
-					if (err) throw err;
-
-					console.log('Opened document "' + self.documentName + '"');
-					self._initShareDoc(doc);
-				});
 			}
 		},
 
@@ -506,10 +575,6 @@
 			Backbone.Collection.prototype.remove.apply(this, arguments);
 		},
 
-		generateDocumentPath: function() {
-			return [];
-		},
-
 		generateDocumentName: function() {
 			return generateGUID();
 		},
@@ -527,30 +592,12 @@
 			});
 		},
 
-		_initShareDoc: function(shareDoc) {
-			var self = this;
+		_initialState: function() {
+			return [];
+		},
 
-			if (shareDoc.type.name !== 'json') {
-				throw new Error('ShareJS document must be of type "json"');
-			}
-
-			this.shareDoc = shareDoc;
-
-			if (shareDoc.created) {
-				shareDoc.submitOp([{p: [], oi: []}], this._submitHandler);
-				shareDoc.created = false;
-			}
-
-			shareDoc.on('remoteop', this._onRemoteOp);
-
-			if (this.pendingOperations.length) {
-				this.shareDoc.submitOp(this.pendingOperations, function(error) {
-					if (!error) self.pendingOperations.length = 0;
-					self.trigger('share:connected', self.shareDoc);
-				});
-			} else {
-				this.trigger('share:connected', this.shareDoc);
-			}
+		_getAtPathPart: function(part) {
+			return this.at(part);
 		},
 
 		_prepareListChanges: function(models, type) {
@@ -593,13 +640,7 @@
 			}
 
 			if (!options || !options.undo) {
-				if (this.undoStack.length && this.undoIndex !== this.undoStack.length - 1) {
-					this.undoStack = this.undoStack.slice(0, Math.max(0, this.undoIndex + 1));
-					this.undoIndex = this.undoStack.length - 1;
-				}
-
-				this.undoStack.push(ops);
-				this.undoIndex++;
+				this.undoContext.pushOps(ops);
 			}
 		},
 
