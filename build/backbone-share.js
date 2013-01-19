@@ -1,10 +1,7 @@
-// Collection path should be a simple name?
 // Need to validate models
-// Error handling on submitOp
 // Verify re-opening works
 // Clean up parent/child reference cycles
 // Need to handle connectivity on undo/redo
-// List inserts at specific locations could mangle things
 
 (function(){
 	var root = this,
@@ -196,6 +193,16 @@
 			}
 		},
 
+		_onRemoteOp: function(ops) {
+			var self = this;
+			_.each(ops, function(op, i) {
+				var offset = op.si || op.sd ? 2 : 1;
+				if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
+					self._handleOperation(op);
+				}
+			});
+		},
+
 		_submitHandler: function(error) {
 			if (error) throw error;
 		}
@@ -248,15 +255,6 @@
 
 				if (isShareModel(v)) {
 					v._setParent(self, [k]);
-				}
-			});
-		},
-
-		_onRemoteOp: function(ops) {
-			var self = this;
-			_.each(ops, function(op, i) {
-				if (_.isEqual(op.p, self.documentPath)) {
-					self._handleOperation(op);
 				}
 			});
 		},
@@ -458,7 +456,7 @@
 	var sharedCollectionProto = {
 		constructor: function(models, options) {
 			var self = this;
-			
+
 			this.documentPath = this.generateDocumentPath();
 			this.pendingOperations = [];
 			this.undoStack = [];
@@ -526,15 +524,6 @@
 
 			_.each(models, function(model) {
 				model._setParent(self, [self.indexOf(model)]);
-			});
-		},
-
-		_onRemoteOp: function(ops) {
-			var self = this;
-			_.each(ops, function(op, i) {
-				if (_.isEqual(op.p.slice(0, op.p.length - 1), self.documentPath)) {
-					self._handleOperation(op);
-				}
 			});
 		},
 
