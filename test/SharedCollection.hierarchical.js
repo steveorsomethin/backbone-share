@@ -30,184 +30,199 @@
 		});
 
 		it('should emit li operations when adding models', function(done) {
-			new TestParentModel().get('collectionTest').share(function(error, root) {
-				var collection = this,
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
 					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
 
 				this.shareDoc.on('change', function(ops) {
-					console.log(collection.shareDoc.snapshot);
-					console.log(collection.toJSON());
-					// asyncAssert(done, function() {
-					// 	expect(ops).to.eql(newModels.map(
-					// 		function(model, i) {
-					// 			return {
-					// 				p: [i],
-					// 				li: model.toJSON()
-					// 			};
-					// 		})
-					// 	);
-					// 	expect(collection.shareDoc.snapshot).to.eql(collection.toJSON());
-					// });
+					asyncAssert(done, function() {
+						expect(ops).to.eql(newModels.map(
+							function(model, i) {
+								return {
+									p: ['collectionTest', i],
+									li: model.toJSON()
+								};
+							})
+						);
+						expect(model.shareDoc.snapshot.collectionTest).to.eql(collection.toJSON());
+					});
 				});
 
-				this.add(newModels);
+				collection.add(newModels);
 			});
 		});
 
-		// it('should emit ld operations on undo of adding models', function(done) {
-		// 	new TestCollection().share(function(error, root) {
-		// 		var collection = this,
-		// 			newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
+		it('should emit ld operations on undo of adding models', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
 
-		// 		this.add(newModels);
+				collection.add(newModels);
 
-		// 		this.shareDoc.on('change', function(ops) {
-		// 			asyncAssert(done, function() {
-		// 				expect(ops.reverse()).to.eql(newModels.map(
-		// 					function(model, i) {
-		// 						return {
-		// 							p: [i],
-		// 							ld: model.toJSON()
-		// 						};
-		// 					})
-		// 				);
-		// 				expect(collection.shareDoc.snapshot).to.eql(collection.toJSON());
-		// 			});
-		// 		});
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops.reverse()).to.eql(newModels.map(
+							function(model, i) {
+								return {
+									p: ['collectionTest', i],
+									ld: model.toJSON()
+								};
+							})
+						);
+						expect(model.shareDoc.snapshot.collectionTest).to.eql(collection.toJSON());
+					});
+				});
 
-		// 		this.undo();
-		// 	});
-		// });
+				this.undo();
+			});
+		});
 
-		// it('should emit li operations on redo of adding models', function(done) {
-		// 	new TestCollection().share(function(error, root) {
-		// 		var collection = this,
-		// 			newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
+		it('should emit li operations on redo of adding models', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
 
-		// 		this.add(newModels);
-		// 		this.undo();
+				collection.add(newModels);
+				this.undo();
 
-		// 		this.shareDoc.on('change', function(ops) {
-		// 			asyncAssert(done, function() {
-		// 				expect(ops).to.eql(newModels.map(
-		// 					function(model, i) {
-		// 						return {
-		// 							p: [i],
-		// 							li: model.toJSON()
-		// 						};
-		// 					})
-		// 				);
-		// 				expect(collection.shareDoc.snapshot).to.eql(collection.toJSON());
-		// 			});
-		// 		});
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql(newModels.map(
+							function(model, i) {
+								return {
+									p: ['collectionTest', i],
+									li: model.toJSON()
+								};
+							})
+						);
+						expect(model.shareDoc.snapshot.collectionTest).to.eql(collection.toJSON());
+					});
+				});
 
-		// 		this.redo();
-		// 	});
-		// });
+				this.redo();
+			});
+		});
 
-		// it('should emit ld operations when removing models', function(done) {
-		// 	new TestCollection([new TestChildModel(), new TestChildModel(), new TestChildModel()]).share(function(error, root) {
-		// 		var collection = this,
-		// 			models = this.toJSON();
+		it('should emit ld operations when removing models', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
 
-		// 		this.shareDoc.on('change', function(ops) {
-		// 			asyncAssert(done, function() {
-		// 				expect(ops.reverse()).to.eql(models.map(
-		// 					function(model, i) {
-		// 						return {
-		// 							p: [i],
-		// 							ld: model
-		// 						};
-		// 					})
-		// 				);
-		// 				expect(collection.shareDoc.snapshot).to.eql([]);
-		// 			});
-		// 		});
+				collection.add(newModels);
 
-		// 		this.remove(this.models);
-		// 	});
-		// });
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops.reverse()).to.eql(newModels.map(
+							function(model, i) {
+								return {
+									p: ['collectionTest', i],
+									ld: model.toJSON()
+								};
+							})
+						);
+						expect(model.shareDoc.snapshot.collectionTest).to.eql([]);
+					});
+				});
 
-		// it('should emit li operations on undo of removing models', function(done) {
-		// 	new TestCollection([new TestChildModel(), new TestChildModel(), new TestChildModel()]).share(function(error, root) {
-		// 		var collection = this,
-		// 			models = this.toJSON();
+				collection.remove(newModels);
+			});
+		});
 
-		// 		this.remove(this.models);
+		it('should emit li operations on undo of removing models', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
 
-		// 		this.shareDoc.on('change', function(ops) {
-		// 			asyncAssert(done, function() {
-		// 				expect(ops).to.eql(models.map(
-		// 					function(model, i) {
-		// 						return {
-		// 							p: [i],
-		// 							li: model
-		// 						};
-		// 					})
-		// 				);
-		// 				expect(collection.shareDoc.snapshot).to.eql(collection.toJSON());
-		// 			});
-		// 		});
+				collection.add(newModels);
 
-		// 		this.undo();
-		// 	});
-		// });
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql(newModels.map(
+							function(model, i) {
+								return {
+									p: ['collectionTest', i],
+									ld: model.toJSON()
+								};
+							}).reverse()
+						);
+						expect(model.shareDoc.snapshot.collectionTest).to.eql(collection.toJSON());
+					});
+				});
 
-		// it('should emit ld operations on redo of removing models', function(done) {
-		// 	new TestCollection([new TestChildModel(), new TestChildModel(), new TestChildModel()]).share(function(error, root) {
-		// 		var collection = this,
-		// 			models = this.toJSON();
+				this.undo();
+			});
+		});
 
-		// 		this.remove(this.models);
-		// 		this.undo();
+		it('should emit ld operations on redo of removing models', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
 
-		// 		this.shareDoc.on('change', function(ops) {
-		// 			asyncAssert(done, function() {
-		// 				expect(ops.reverse()).to.eql(models.map(
-		// 					function(model, i) {
-		// 						return {
-		// 							p: [i],
-		// 							ld: model
-		// 						};
-		// 					})
-		// 				);
-		// 				expect(collection.shareDoc.snapshot).to.eql(collection.toJSON());
-		// 			});
-		// 		});
+				collection.add(newModels);
+				collection.remove(newModels);
+				this.undo();
 
-		// 		this.redo();
-		// 	});
-		// });
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops.reverse()).to.eql(newModels.map(
+							function(model, i) {
+								return {
+									p: ['collectionTest', i],
+									ld: model.toJSON()
+								};
+							})
+						);
+						expect(model.shareDoc.snapshot.collectionTest).to.eql(collection.toJSON());
+					});
+				});
 
-		// it('should add elements on incoming li operation', function(done) {
-		// 	new TestCollection([new TestChildModel(), new TestChildModel()]).share(function(error, root) {
-		// 		var collection = this,
-		// 			newModel = new TestChildModel();
+				this.redo();
+			});
+		});
 
-		// 		this.on('add', function() {
-		// 			asyncAssert(done, function() {
-		// 				expect(collection.at(1).toJSON()).to.eql(newModel.toJSON());
-		// 			});
-		// 		});
+		it('should add elements on incoming li operation', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModel = new TestChildModel(),
+					newModels = [new TestChildModel(), new TestChildModel()];
 
-		// 		this._onRemoteOp([{p: [1], li: newModel.toJSON()}]);
-		// 	});
-		// });
+				collection.add(newModels);
 
-		// it('should remove elements on incoming ld operation', function(done) {
-		// 	new TestCollection([new TestChildModel(), new TestChildModel()]).share(function(error, root) {
-		// 		var collection = this,
-		// 			model = this.at(1);
+				collection.on('add', function() {
+					asyncAssert(done, function() {
+						expect(collection.at(1).toJSON()).to.eql(newModel.toJSON());
+					});
+				});
 
-		// 		this.on('remove', function() {
-		// 			asyncAssert(done, function() {
-		// 				expect(collection.length).to.eql(1);
-		// 				expect(collection.at(0).toJSON()).to.eql(model.toJSON());
-		// 			});
-		// 		});
+				collection._onRemoteOp([{p: ['collectionTest', 1], li: newModel.toJSON()}]);
+			});
+		});
 
-		// 		this._onRemoteOp([{p: [0], ld: this.at(0).toJSON()}]);
-		// 	});
-		// });
+		it('should remove elements on incoming ld operation', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel()],
+					targetModel = newModels[1];
+
+				collection.add(newModels);
+
+				collection.on('remove', function() {
+					asyncAssert(done, function() {
+						expect(collection.length).to.eql(1);
+						expect(collection.at(0).toJSON()).to.eql(targetModel.toJSON());
+					});
+				});
+
+				collection._onRemoteOp([{p: ['collectionTest', 0], ld: collection.at(0).toJSON()}]);
+			});
+		});
 	});
 }).call(this);
