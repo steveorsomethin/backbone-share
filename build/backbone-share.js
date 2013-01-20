@@ -3,7 +3,6 @@
 // Clean up parent/child reference cycles
 // Need to handle connectivity on undo/redo
 // List move?
-// Detach children on remove
 
 (function(){
 	var root = this,
@@ -575,6 +574,10 @@
 			if (ops) {
 				this._sendOps(ops, options, this._submitHandler);
 			}
+
+			_.each(models, function(model) {
+				model._setParent(null);
+			});
 
 			Backbone.Collection.prototype.remove.apply(this, arguments);
 		},
