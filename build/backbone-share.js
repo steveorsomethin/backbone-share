@@ -11,6 +11,8 @@
 		sharejs = root.sharejs,
 		_ = root._;
 
+	Backbone.ShareLogger = {log: function() {}};
+
 	var diff = (function() {
 		/* 
 		* TODO: Look into adapting more of the diff algorithm to make more efficient patches 
@@ -168,7 +170,7 @@
 			if (!this.parent) {
 				this.documentName = this.generateDocumentName();
 				sharejs.open(this.documentName, 'json', function(error, doc) {
-					console.log('Opened document "' + self.documentName + '"');
+					Backbone.ShareLogger.log('Opened document "' + self.documentName + '"');
 
 					self.once('share:connected', function() {
 						if (callback) 
@@ -444,7 +446,7 @@
 						} 
 						break;
 					default:
-						console.log('Ignoring attempt to send change on type ' + t);
+						Backbone.ShareLogger.log('Ignoring attempt to send change on type ' + t);
 						break;
 				}
 
@@ -456,7 +458,7 @@
 			}
 
 			if (this.shareDoc) {
-				console.log('Sending:', ops);
+				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, this._submitHandler);
 			} else {
 				Array.prototype.push.apply(this.pendingOperations, ops);
@@ -635,7 +637,7 @@
 
 		_sendOps: function(ops, options, callback) {
 			if (this.shareDoc) {
-				console.log('Sending:', ops);
+				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, callback);
 			} else {
 				Array.prototype.push.apply(this.pendingOperations, ops);
