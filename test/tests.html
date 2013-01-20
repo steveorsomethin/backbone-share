@@ -34,6 +34,7 @@
 	<script src="./SharedCollection.non-hierarchical.js"></script>
 	<script src="./SharedCollection.hierarchical.js"></script>
 	<script>
+		Backbone.ShareLogger = console;
 		mocha.run().globals(['console', 'getInterface']);
 	</script>
 </body>
