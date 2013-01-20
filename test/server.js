@@ -2,7 +2,7 @@ var express = require('express'),
 	sharejs = require('share').server,
 	app = express.createServer();
 
-sharejs.attach(app);
+sharejs.attach(app, {db: {type: 'none'}});
 
 app.model.on('applyOp', function(docName, opData, snapshot, oldSnapshot) {
 	console.log(arguments);
