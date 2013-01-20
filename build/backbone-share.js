@@ -10,72 +10,46 @@
 		sharejs = root.sharejs,
 		_ = root._;
 
-	Backbone.ShareLogger = {log: function() {}};
+	Backbone.ShareLogger = console;
 
-	var diff = (function() {
-		/* 
-		* TODO: Look into adapting more of the diff algorithm to make more efficient patches 
-		*		when there are multiple, non-sequential updates to a string
-		*/
-		//The following two methods were lifted from http://code.google.com/p/google-diff-match-patch/
-		var diff_commonPrefix = function(text1, text2) {
-			// Quick check for common null cases.
-			if (!text1 || !text2 || text1.charAt(0) != text2.charAt(0)) {
-				return 0;
-			}
-			// Binary search.
-			// Performance analysis: http://neil.fraser.name/news/2007/10/09/
-			var pointermin = 0;
-			var pointermax = Math.min(text1.length, text2.length);
-			var pointermid = pointermax;
-			var pointerstart = 0;
-			while (pointermin < pointermid) {
-				if (text1.substring(pointerstart, pointermid) ==
-						text2.substring(pointerstart, pointermid)) {
-					pointermin = pointermid;
-					pointerstart = pointermin;
-				} else {
-					pointermax = pointermid;
+	var getDiffs = (function() {
+		var diff_match_patch = this.diff_match_patch,
+			DIFF_EQUAL = this.DIFF_EQUAL,
+			DIFF_DELETE = this.DIFF_DELETE,
+			DIFF_INSERT = this.DIFF_INSERT;
+
+		var dmp = new diff_match_patch();
+
+		return function(str1, str2, basePath) {
+			var diffs = dmp.diff_main(str1, str2),
+				ops = [],
+				position = 0;
+
+			_.each(diffs, function(diff) {
+				var type = diff[0], text = diff[1];
+
+				switch (type) {
+					case DIFF_EQUAL:
+						position += text.length;
+						break;
+					case DIFF_DELETE:
+						ops.push({
+							p: basePath.concat([position]),
+							sd: text
+						});
+						break;
+					case DIFF_INSERT:
+						ops.push({
+							p: basePath.concat([position]),
+							si: text
+						});
+
+						position += text.length;
+						break;
 				}
-				pointermid = Math.floor((pointermax - pointermin) / 2 + pointermin);
-			}
-			return pointermid;
-		};
+			});
 
-		var diff_commonSuffix = function(text1, text2) {
-			// Quick check for common null cases.
-			if (!text1 || !text2 ||
-					text1.charAt(text1.length - 1) != text2.charAt(text2.length - 1)) {
-				return 0;
-			}
-			// Binary search.
-			// Performance analysis: http://neil.fraser.name/news/2007/10/09/
-			var pointermin = 0;
-			var pointermax = Math.min(text1.length, text2.length);
-			var pointermid = pointermax;
-			var pointerend = 0;
-			while (pointermin < pointermid) {
-				if (text1.substring(text1.length - pointermid, text1.length - pointerend) ==
-						text2.substring(text2.length - pointermid, text2.length - pointerend)) {
-					pointermin = pointermid;
-					pointerend = pointermin;
-				} else {
-					pointermax = pointermid;
-				}
-				pointermid = Math.floor((pointermax - pointermin) / 2 + pointermin);
-			}
-			return pointermid;
-		};
-
-		return function(str1, str2) {
-			var prefix = diff_commonPrefix(str1, str2),
-				suffix = diff_commonSuffix(str1, str2);
-
-			return {
-				d: str1.substring(prefix, str1.length - suffix),
-				i: str2.substring(prefix, str2.length - suffix),
-				p: prefix
-			};
+			return ops;
 		};
 
 	}).call(this);
@@ -394,34 +368,22 @@
 			var ops = [];
 			_.each(_.pairs(this.changedAttributes()), function(pair) {
 				var k = pair[0], v = pair[1], t = type(v), prev = self.previous(k);
-				var result, textDiff;
-				result = {p: self.documentPath.concat([k])};
+				var path = self.documentPath.concat([k]), result;
+
 				switch(t) {
 					case 'string':
-						textDiff = diff(prev, v);
-						result.p.push(textDiff.p);
-
-						if (!!textDiff.d) {
-							result.sd = textDiff.d;
-						}
-						if (!!textDiff.i) {
-							if (result.sd) {
-								ops.push(result);
-								result = _.clone(result);
-								delete result.sd;
-							}
-							result.si = textDiff.i;
-						}
+						Array.prototype.push.apply(ops, getDiffs(prev, v, path));
 						break;
 					case 'number':
-						result.na = v - prev;
+						ops.push({p: path, na: v - prev});
 						break;
 					case 'boolean':
-						result.oi = v;
-						result.od = !v;
+						ops.push({p: path, oi: v, od: !v});
 						break;
 					case 'object':
 					case 'array':
+						result = {p: path};
+
 						if (isShareModel(v)) {
 							result.oi = v.toJSON();
 						} else {
@@ -435,21 +397,25 @@
 								result.od = prev;
 							}
 						}
+
+						ops.push(result);
 						break;
 					case 'null':
 					case 'undefined':
+						result = {p: path};
+
 						if (isShareModel(prev)) {
 							result.od = prev.toJSON();
 						} else {
 							result.od = prev;
-						} 
+						}
+
+						ops.push(result);
 						break;
 					default:
 						Backbone.ShareLogger.log('Ignoring attempt to send change on type ' + t);
 						break;
 				}
-
-				return ops.push(result);
 			});
 
 			if (!options || !options.undo) {

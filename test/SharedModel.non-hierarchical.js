@@ -29,6 +29,23 @@
 			});
 		});
 
+		it('should emit si operations when making multiple identical text changes', function(done) {
+			new TestModel().share(function(error, root) {
+				var model = this;
+
+				this.set('strTest', 'abcdefgh');
+
+				model.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql([{p: ['strTest', 8], si: 'h'}]);
+						expect(model.shareDoc.snapshot).to.eql(model.toJSON());
+					});
+				});
+
+				this.set('strTest', 'abcdefghh');
+			});
+		});
+
 		it('should emit sd operation when deleting text', function(done) {
 			new TestModel().share(function(error, root) {
 				var model = this;
@@ -219,15 +236,16 @@
 
 					expect(model.get('strTest')).to.eql('abcdefghij');
 					expect(model.shareDoc.snapshot).to.eql(model.toJSON());
-				
+					
 					expect(model.undoContext.stack).to.eql([
 						[
 							{p: ['strTest', 2], sd: 'cde'},
 							{p: ['strTest', 2], si: '123'}
 						],
 						[
-							{p: ['strTest', 2], sd: '123fg'},
-							{p: ['strTest', 2], si: 'cdefghij'}
+							{p: ['strTest', 2], sd: '123'},
+							{p: ['strTest', 2], si: 'cde'},
+							{p: ['strTest', 7], si: 'hij'}
 						]
 					]);
 				});
