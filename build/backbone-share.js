@@ -584,14 +584,14 @@
 		_attachSubModels: function(models, options) {
 			var self = this;
 
+			_.each(models, function(model) {
+				model._setParent(self, [self.indexOf(model)]);
+			});
+
 			if (!options || !options.local) {
 				return this._sendOps(this._prepareListChanges(models, 'add'),
 					options, this._submitHandler);
 			}
-
-			_.each(models, function(model) {
-				model._setParent(self, [self.indexOf(model)]);
-			});
 		},
 
 		_initialState: function() {
