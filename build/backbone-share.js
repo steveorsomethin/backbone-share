@@ -468,10 +468,13 @@
 				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, this._submitHandler);
 			} else {
+				console.log('Not connected, ignoring ', ops);
 			}
 		},
 
 		_handleOperation: function (op, options) {
+			console.log('Handling:', op);
+
 			if (op.si || op.sd) this._handleStringOperation(op, options);
 			if (op.oi || op.od) this._handleObjectOperation(op, options);
 			if (op.na) this._handleNumberOperation(op, options);
@@ -659,6 +662,7 @@
 				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, callback);
 			} else {
+				console.log('Not connected, ignoring ', ops);
 			}
 
 			if (!options || !options.undo) {
@@ -667,6 +671,8 @@
 		},
 
 		_handleOperation: function(op) {
+			console.log('Handling:', op);
+
 			if (op.li) {
 				this.add(new this.model(op.li), {at: op.p[op.p.length - 1], local: true});
 			}
