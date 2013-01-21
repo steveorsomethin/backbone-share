@@ -417,7 +417,7 @@
 						Array.prototype.push.apply(ops, getDiffs(prev, v, path));
 						break;
 					case 'number':
-						ops.push({p: path, na: v - prev});
+						ops.push({p: path, na: v - (prev || 0)});
 						break;
 					case 'boolean':
 						ops.push({p: path, oi: v, od: !v});
