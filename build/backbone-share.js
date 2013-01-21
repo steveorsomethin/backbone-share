@@ -460,7 +460,7 @@
 				}
 			});
 
-			if (!options || !options.undo) {
+			if (!options || (!options.undo && !options.silent)) {
 				this.undoContext.pushOps(ops);
 			}
 
@@ -573,7 +573,7 @@
 			var ops;
 			models =  models = _.isArray(models) ? models.slice() : [models];
 
-			if (!options || !options.local) {
+			if (!options || (!options.local  && !options.silent)) {
 				ops = this._prepareListChanges(models, 'remove');
 			}
 
@@ -599,7 +599,7 @@
 				model._setParent(self, [self.indexOf(model)]);
 			});
 
-			if (!options || !options.local) {
+			if (!options || (!options.local && !options.silent)) {
 				return this._sendOps(this._prepareListChanges(models, 'add'),
 					options, this._submitHandler);
 			}
