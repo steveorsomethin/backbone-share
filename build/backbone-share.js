@@ -85,6 +85,19 @@
 		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
+	var onRemoteOp = function(ops) {
+		var self = this;
+		if (this.lastOps === ops) return;
+		
+		this.lastOps = ops;
+		_.each(ops, function(op, i) {
+			var offset = op.si || op.sd ? 2 : 1;
+			if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
+				self._handleOperation(op);
+			}
+		});
+	};
+
 	var UndoContext = function() {
 		this.stack = [];
 		this.index = -1;
@@ -219,19 +232,12 @@
 			}
 
 			//Prevent redundant bindings
-			shareDoc.removeListener('remoteop', this._onRemoteOp);
-			shareDoc.on('remoteop', this._onRemoteOp);
-
+			if (this._onRemoteOp) {
+				shareDoc.removeListener(this._onRemoteOp);
 			}
+			this._onRemoteOp = shareDoc.on('remoteop', onRemoteOp.bind(this));
 
-		_setParent: function(parent, path) {
-			if (this.parent) {
-				this._detach();
-			}
-
-			if (parent) {
-				this._attach(parent, path);
-			}
+			this.trigger('share:connected', this.shareDoc);
 		},
 
 		_refreshHierarchy: function(parent, path) {
@@ -244,19 +250,31 @@
 			if (parent.shareDoc) {
 				this._initShareDoc(parent.shareDoc);
 			} else {
-				this.listenTo(parent, 'share:connected', function(shareDoc) {
+				parent.once('share:connected', function(shareDoc) {
+					self._attach(parent, path);
 					self._initShareDoc(shareDoc);
 				});
 			}
 		},
 
+		_setParent: function(parent, path) {
+			if (this.parent) {
+				this._detach();
+			}
+
+			if (parent) {
+				this._attach(parent, path);
+			}
+		},
+
 		_attach: function(parent, path) {
+			var self = this;
 			this.parent = parent;
 
-			this._refreshHierarchy(parent, path);
+			this._refreshHierarchy(this.parent, path);
 
-			this.listenTo(parent, 'attached detached', function() {
-				this._refreshHierarchy(parent, path);
+			this.listenTo(this.parent, 'attached', function() {
+				self._refreshHierarchy(parent, path);
 			});
 
 			this.trigger('attached');
@@ -271,16 +289,6 @@
 			this.shareDoc = null;
 
 			this.trigger('detached');
-		},
-
-		_onRemoteOp: function(ops) {
-			var self = this;
-			_.each(ops, function(op, i) {
-				var offset = op.si || op.sd ? 2 : 1;
-				if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
-					self._handleOperation(op);
-				}
-			});
 		},
 
 		_submitHandler: function(error) {
