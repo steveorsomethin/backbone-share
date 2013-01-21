@@ -24,8 +24,9 @@
 						expect(model.shareDoc.snapshot).to.eql(model.toJSON());
 					});
 				});
-
-				this.set('strTest', 'abcdefghij');
+				
+				model.set('strTest', 'abcdefghij');
+				
 			});
 		});
 
