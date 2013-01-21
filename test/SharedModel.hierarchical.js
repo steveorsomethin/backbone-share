@@ -8,6 +8,10 @@
 	});
 
 	var TestParentModel = Backbone.SharedModel.extend({
+		subDocTypes: {
+			objTest: TestChildModel
+		},
+
 		defaults: function() {
 			return {
 				strTest: 'abcdefg',
