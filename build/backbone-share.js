@@ -298,21 +298,18 @@
 
 	var sharedModelProto = {
 		constructor: function(attr, options) {
-			Backbone.Model.prototype.constructor.apply(this, arguments);
-
 			var self = this;
+
+			this.documentPath = this.generateDocumentPath();
+			this.undoContext = new UndoContext();
+
+			Backbone.Model.prototype.constructor.apply(this, arguments);
 
 			attr = attr || {};
 
 			this.set('id', attr.id || generateGUID());
 			
 			this.defaults = this.defaults || {};
-			this.documentPath = this.generateDocumentPath();
-			this.undoContext = new UndoContext();
-
-			if (!this.subDocTypes) {
-				this._inferSubDocTypes();
-			}
 
 			if (!Array.isArray(this.documentPath)) {
 				throw new Error('Document path must be an array');
@@ -320,12 +317,10 @@
 
 			this._attachSubModels(this.attributes);
 
-			this.on("change", function(model, options) {
-				if (!options || !options.local) {
+			this.on('change', function(model, options) {
+				if (!options || (!options.local && !options.silent)) {
 					return self._sendModelChange(options);
 				}
-
-				this._attachSubModels(this.changedAttributes());
 			});
 		},
 
