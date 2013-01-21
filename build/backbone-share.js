@@ -515,7 +515,8 @@
 
 			var pathProp = op.p[op.p.length - 1],
 				obj = this.get(pathProp),
-				subDocType = this.subDocTypes[pathProp];
+				subDocTypes = this.subDocTypes || {},
+				subDocType = subDocTypes[pathProp];
 
 			options = options || {};
 			options.local = true;
