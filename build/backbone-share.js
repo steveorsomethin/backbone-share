@@ -145,7 +145,7 @@
 			var self = this;
 
 			if (!this.parent) {
-				this.documentName = this.generateDocumentName();
+				this.documentName = this.documentName || this.generateDocumentName();
 				sharejs.open(this.documentName, 'json', function(error, doc) {
 					Backbone.ShareLogger.log('Opened document "' + self.documentName + '"');
 
