@@ -224,5 +224,29 @@
 				collection._onRemoteOp([{p: ['collectionTest', 0], ld: collection.at(0).toJSON()}]);
 			});
 		});
+
+		it('should emit si operation when adding text', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModel = new TestChildModel();
+
+				collection.add(newModel);
+
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql([{
+							p: ['collectionTest', 0, 'strTest', 7],
+							si: 'hij'
+						}]);
+						expect(model.shareDoc.snapshot.collectionTest[0]).to.eql(newModel.toJSON());
+					});
+				});
+
+				newModel.set('strTest', 'abcdefghij');
+			});
+		});
+
+		
 	});
 }).call(this);
