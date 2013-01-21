@@ -404,18 +404,6 @@
 			});
 		},
 
-		_inferSubDocTypes: function() {
-			var self = this;
-			this.subDocTypes = {};
-			_.each(_.pairs(this.attributes), function(pair) {
-				var k = pair[0], v = pair[1];
-
-				if (isShareModel(v)) {
-					self.subDocTypes[k] = Object.getPrototypeOf(v).constructor;
-				}
-			});
-		},
-
 		_sendModelChange: function(options) {
 			var self = this;
 
