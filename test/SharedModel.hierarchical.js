@@ -187,35 +187,37 @@
 
 		it('should emit od operation when unsetting a child JS object', function(done) {
 			new TestParentModel({
-				objTest: new TestChildModel().toJSON()
+				objTestSimple: new TestChildModel().toJSON()
 			}).share(function(error, root) {
 				var model = this;
 				this.shareDoc.on('change', function(ops) {
 					asyncAssert(done, function() {
-						expect(ops).to.eql([{p: ['objTest'], od: model.previous('objTest')}]);
-						expect(model.shareDoc.snapshot.objTest).to.eql(undefined);
+						expect(ops).to.eql([{p: ['objTestSimple'], od: model.previous('objTestSimple')}]);
+						expect(model.shareDoc.snapshot.objTestSimple).to.eql(undefined);
 					});
 				});
 
-				this.unset('objTest');
+				this.unset('objTestSimple');
 			});
 		});
 
 		it('should emit oi and od operations when replacing a child JS object', function(done) {
-			new TestParentModel().share(function(error, root) {
+			new TestParentModel({
+				objTestSimple: new TestChildModel().toJSON()
+			}).share(function(error, root) {
 				var model = this;
 				this.shareDoc.on('change', function(ops) {
 					asyncAssert(done, function() {
 						expect(ops).to.eql([{
-							p: ['objTest'], 
-							oi: model.get('objTest'),
-							od: model.previous('objTest').toJSON()
+							p: ['objTestSimple'], 
+							oi: model.get('objTestSimple'),
+							od: model.previous('objTestSimple')
 						}]);
-						expect(model.shareDoc.snapshot.objTest).to.eql(model.get('objTest'));
+						expect(model.shareDoc.snapshot.objTestSimple).to.eql(model.get('objTestSimple'));
 					});
 				});
 
-				this.set('objTest', new TestChildModel({}, {
+				this.set('objTestSimple', new TestChildModel({}, {
 					parent: this,
 					documentPath: this.generateDocumentPath().concat(['objTest'])
 				}).toJSON());
