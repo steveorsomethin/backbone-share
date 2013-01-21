@@ -111,7 +111,7 @@
 						expect(model.shareDoc.snapshot.objTest).to.eql(model.toJSON());
 					});
 				});
-				console.log(this)
+
 				this.set('numTest', 0);
 			});
 		});
@@ -311,8 +311,10 @@
 
 				this.on('change', function() {
 					asyncAssert(done, function() {
+
 						expect(model.get('objTest').toJSON()).to.eql(newModel.toJSON());
 					});
+
 				});
 
 				this.shareDoc.emit('remoteop', [{
