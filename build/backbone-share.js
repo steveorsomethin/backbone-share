@@ -21,6 +21,10 @@
 		var dmp = new diff_match_patch();
 
 		return function(str1, str2, basePath) {
+			str1 = str1 || '';
+			str2 = str2 || '';
+			basePath = basePath || [];
+
 			var diffs = dmp.diff_main(str1, str2),
 				ops = [],
 				position = 0;
