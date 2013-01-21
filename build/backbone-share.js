@@ -366,6 +366,20 @@
 			return this.get('id');
 		},
 
+		toJSON: function() {
+			var json = _.clone(this.attributes);
+
+			_.each(_.pairs(this.attributes), function(pair) {
+				var k = pair[0], v = pair[1];
+
+				if (isShareModel(v)) {
+					json[k] = v.toJSON();
+				}
+			});
+
+			return json;
+		},
+
 		_initialState: function() {
 			return this.toJSON();
 		},
