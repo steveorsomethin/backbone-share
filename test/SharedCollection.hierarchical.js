@@ -201,7 +201,7 @@
 					});
 				});
 
-				collection._onRemoteOp([{p: ['collectionTest', 1], li: newModel.toJSON()}]);
+				collection.shareDoc.emit('remoteop', [{p: ['collectionTest', 1], li: newModel.toJSON()}]);
 			});
 		});
 
@@ -221,7 +221,7 @@
 					});
 				});
 
-				collection._onRemoteOp([{p: ['collectionTest', 0], ld: collection.at(0).toJSON()}]);
+				collection.shareDoc.emit('remoteop', [{p: ['collectionTest', 0], ld: collection.at(0).toJSON()}]);
 			});
 		});
 

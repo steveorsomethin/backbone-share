@@ -177,7 +177,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: [1], li: newModel.toJSON()}]);
+				this.shareDoc.emit('remoteop', [{p: [1], li: newModel.toJSON()}]);
 			});
 		});
 
@@ -193,7 +193,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: [0], ld: this.at(0).toJSON()}]);
+				this.shareDoc.emit('remoteop', [{p: [0], ld: this.at(0).toJSON()}]);
 			});
 		});
 	});

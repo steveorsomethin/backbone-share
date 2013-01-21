@@ -227,7 +227,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: ['objTest', 'strTest', 7], si: 'hij'}]);
+				this.shareDoc.emit('remoteop', [{p: ['objTest', 'strTest', 7], si: 'hij'}]);
 			});
 		});
 
@@ -240,7 +240,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: ['objTest', 'strTest', 2], sd: 'cd'}]);
+				this.shareDoc.emit('remoteop', [{p: ['objTest', 'strTest', 2], sd: 'cd'}]);
 			});
 		});
 
@@ -253,7 +253,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: ['objTest', 'boolTest'], od: false, oi: true}]);
+				this.shareDoc.emit('remoteop', [{p: ['objTest', 'boolTest'], od: false, oi: true}]);
 			});
 		});
 
@@ -268,7 +268,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: ['objTest', 'boolTest'], od: true, oi: false}]);
+				this.shareDoc.emit('remoteop', [{p: ['objTest', 'boolTest'], od: true, oi: false}]);
 			});
 		});
 
@@ -281,7 +281,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: ['objTest', 'numTest'], na: 50}]);
+				this.shareDoc.emit('remoteop', [{p: ['objTest', 'numTest'], na: 50}]);
 			});
 		});
 
@@ -294,7 +294,7 @@
 					});
 				});
 
-				this._onRemoteOp([{p: ['objTest', 'numTest'], na: -50}]);
+				this.shareDoc.emit('remoteop', [{p: ['objTest', 'numTest'], na: -50}]);
 			});
 		});
 
@@ -309,7 +309,7 @@
 					});
 				});
 
-				this._onRemoteOp([{
+				this.shareDoc.emit('remoteop', [{
 					p: ['objTest'],
 					oi: newModel.toJSON()
 				}]);
@@ -327,7 +327,7 @@
 					});
 				});
 
-				this._onRemoteOp([{
+				this.shareDoc.emit('remoteop', [{
 					p: ['objTest'],
 					od: this.get('objTest').toJSON(),
 				}]);
