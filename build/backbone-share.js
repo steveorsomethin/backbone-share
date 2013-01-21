@@ -222,17 +222,7 @@
 			shareDoc.removeListener('remoteop', this._onRemoteOp);
 			shareDoc.on('remoteop', this._onRemoteOp);
 
-			if (this.pendingOperations.length) {
-				this.shareDoc.submitOp(this.pendingOperations, function(error) {
-					if (error) throw error;
-
-					self.pendingOperations.length = 0;
-					self.trigger('share:connected', self.shareDoc);
-				});
-			} else {
-				this.trigger('share:connected', this.shareDoc);
 			}
-		},
 
 		_setParent: function(parent, path) {
 			if (this.parent) {
@@ -310,7 +300,6 @@
 			
 			this.defaults = this.defaults || {};
 			this.documentPath = this.generateDocumentPath();
-			this.pendingOperations = [];
 			this.undoContext = new UndoContext();
 
 			if (!this.subDocTypes) {
@@ -474,7 +463,6 @@
 				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, this._submitHandler);
 			} else {
-				Array.prototype.push.apply(this.pendingOperations, ops);
 			}
 		},
 
@@ -557,7 +545,6 @@
 			var self = this;
 
 			this.documentPath = this.generateDocumentPath();
-			this.pendingOperations = [];
 			this.undoContext = new UndoContext();
 
 			Backbone.Collection.prototype.constructor.apply(this, arguments);
@@ -667,7 +654,6 @@
 				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, callback);
 			} else {
-				Array.prototype.push.apply(this.pendingOperations, ops);
 			}
 
 			if (!options || !options.undo) {
