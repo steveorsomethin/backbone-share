@@ -214,6 +214,8 @@
 			if (shareDoc.created) {
 				shareDoc.submitOp([{p: [], od: null, oi: this._initialState()}], this._submitHandler);
 				shareDoc.created = false;
+			} else if (!this.parent) {
+				this._initFromSnapshot(shareDoc.snapshot);
 			}
 
 			//Prevent redundant bindings
@@ -330,6 +332,44 @@
 			});
 		},
 
+		set: function(key, val, options) {
+			var attrs, self = this;
+			if (key == null) return this;
+
+			// Handle both `"key", value` and `{key: value}` -style arguments.
+			if (_.isObject(key)) {
+				attrs = key;
+				options = val;
+			} else {
+				(attrs = {})[key] = val;
+			}
+
+			if (!options || !options.unset) {
+				_.each(_.pairs(attrs), function(pair) {
+					var k = pair[0], v = pair[1], newModels;
+
+					if (self.subDocTypes && self.subDocTypes[k] && !isShareModel(v)) {
+						attrs[k] = new self.subDocTypes[k](null, {local: true});
+						attrs[k]._setParent(self, k);
+						if (attrs[k] instanceof Backbone.SharedModel) {
+							attrs[k].set(v, {local: true});
+						} else {
+							newModels = [];
+							_.each(v, function(model, i) {
+								newModels[i] = new attrs[k].model(v[i], {local: true});
+								newModels[i]._setParent(attrs[k], i);
+							});
+							attrs[k].add(newModels, {local: true});
+						}
+					}
+				});
+			}
+
+			Backbone.Model.prototype.set.call(this, attrs, options);
+
+			this._attachSubModels(attrs);
+		},
+
 		generateDocumentName: function() {
 			return this.get('id');
 		},
@@ -340,6 +380,10 @@
 
 		_getAtPathPart: function(part) {
 			return this.get(part);
+		},
+
+		_initFromSnapshot: function(snapshot) {
+			this.set(_.clone(snapshot), {local: true});
 		},
 
 		_attachSubModels: function(attributes) {
@@ -575,6 +619,16 @@
 
 		_getAtPathPart: function(part) {
 			return this.at(part);
+		},
+
+		_initFromSnapshot: function(snapshot) {
+			var self = this;
+
+			if (!snapshot || !snapshot.length) return;
+
+			_.each(snapshot, function(model) {
+				self.add(new self.model(model), {local: true});
+			});
 		},
 
 		_prepareListChanges: function(models, type) {
