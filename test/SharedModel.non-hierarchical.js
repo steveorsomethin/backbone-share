@@ -147,7 +147,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['strTest', 7], si: 'hij'});
+				this.shareDoc.emit('remoteop', [{p: ['strTest', 7], si: 'hij'}]);
 			});
 		});
 
@@ -161,7 +161,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['strTest', 2], sd: 'cd'});
+				this.shareDoc.emit('remoteop', [{p: ['strTest', 2], sd: 'cd'}]);
 			});
 		});
 
@@ -175,7 +175,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['boolTest'], od: false, oi: true});
+				this.shareDoc.emit('remoteop', [{p: ['boolTest'], od: false, oi: true}]);
 			});
 		});
 
@@ -189,7 +189,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['boolTest'], od: true, oi: false});
+				this.shareDoc.emit('remoteop', [{p: ['boolTest'], od: true, oi: false}]);
 			});
 		});
 
@@ -203,7 +203,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['numTest'], na: 50});
+				this.shareDoc.emit('remoteop', [{p: ['numTest'], na: 50}]);
 			});
 		});
 
@@ -217,7 +217,7 @@
 					});
 				});
 
-				this._handleOperation({p: ['numTest'], na: -50});
+				this.shareDoc.emit('remoteop', [{p: ['numTest'], na: -50}]);
 			});
 		});
 
