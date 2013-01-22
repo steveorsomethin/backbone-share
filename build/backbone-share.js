@@ -472,15 +472,18 @@
 			_.each(_.pairs(this.changedAttributes()), function(pair) {
 				var k = pair[0], v = pair[1], t = type(v), prev = self.previous(k);
 				var path = self.documentPath.concat([k]), result;
-
+				
 				switch(t) {
 					case 'string':
+						if (typeof prev === 'undefined') ops.push({p: path, oi: v});
 						Array.prototype.push.apply(ops, dmp.getStringOps(prev, v, path));
 						break;
 					case 'number':
+						if (typeof prev === 'undefined') ops.push({p: path, oi: v});
 						ops.push({p: path, na: v - (prev || 0)});
 						break;
 					case 'boolean':
+						if (typeof prev === 'undefined') ops.push({p: path, oi: v});
 						ops.push({p: path, oi: v, od: !v});
 						break;
 					case 'object':
