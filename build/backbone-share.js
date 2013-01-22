@@ -12,50 +12,71 @@
 
 	Backbone.ShareLogger = console;
 
-	var getDiffs = (function() {
+	var dmp = (function() {
 		var diff_match_patch = this.diff_match_patch,
 			DIFF_EQUAL = this.DIFF_EQUAL,
 			DIFF_DELETE = this.DIFF_DELETE,
 			DIFF_INSERT = this.DIFF_INSERT;
 
 		var dmp = new diff_match_patch();
+		return {
+			getStringOps: function(str1, str2, basePath) {
+				str1 = str1 || '';
+				str2 = str2 || '';
+				basePath = basePath || [];
 
-		return function(str1, str2, basePath) {
-			str1 = str1 || '';
-			str2 = str2 || '';
-			basePath = basePath || [];
+				var diffs = dmp.diff_main(str1, str2),
+					ops = [],
+					position = 0;
 
-			var diffs = dmp.diff_main(str1, str2),
-				ops = [],
-				position = 0;
+				_.each(diffs, function(diff) {
+					var type = diff[0], text = diff[1];
 
-			_.each(diffs, function(diff) {
-				var type = diff[0], text = diff[1];
+					switch (type) {
+						case DIFF_EQUAL:
+							position += text.length;
+							break;
+						case DIFF_DELETE:
+							ops.push({
+								p: basePath.concat([position]),
+								sd: text
+							});
+							break;
+						case DIFF_INSERT:
+							ops.push({
+								p: basePath.concat([position]),
+								si: text
+							});
 
-				switch (type) {
-					case DIFF_EQUAL:
-						position += text.length;
-						break;
-					case DIFF_DELETE:
-						ops.push({
-							p: basePath.concat([position]),
-							sd: text
-						});
-						break;
-					case DIFF_INSERT:
-						ops.push({
-							p: basePath.concat([position]),
-							si: text
-						});
+							position += text.length;
+							break;
+					}
+				});
 
-						position += text.length;
-						break;
-				}
-			});
+				return ops;
+			},
 
-			return ops;
-		};
+			patchStringFromOps: function(str, ops) {
+				_.each(ops, function(op) {
+					var pathIndex = op.p[op.p.length - 1],
+						deleted;
 
+					if (op.si) {
+						str = str.slice(0, pathIndex) + op.si + str.slice(pathIndex)
+					}
+
+					if (op.sd) {
+						deleted = str.slice(pathIndex, pathIndex + op.sd.length);
+						if (op.sd !== deleted) {
+							throw new Error('Delete component ' + op.sd + ' does not match deleted text ' + deleted);
+						}
+						str = str.slice(0, pathIndex) + str.slice(pathIndex + op.sd.length);
+					}
+				});
+
+				return str;
+			}
+		}
 	}).call(this);
 
 	//Lifted from jQuery
@@ -85,17 +106,45 @@
 		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
+	var groupStringOps = function(ops, start) {
+		var offset = 2,
+			i = start,
+			op = ops[i++],
+			stringOps = [op],
+			path = op.p.slice(0, op.p.length - offset);
+
+		for (i; i < ops.length; i++) {
+			op = ops[i];
+			if ((op.si || op.sd) && _.isEqual(path, op.p.slice(0, op.p.length - offset))) {
+				stringOps.push(op);
+			} else {
+				break;
+			}
+		}
+
+		return {ops: stringOps, newIndex: --i};
+	};
+
 	var onRemoteOp = function(ops) {
-		var self = this;
+		var stringOperations,
+			op,
+			i;
+
 		if (this.lastOps === ops) return;
 		
 		this.lastOps = ops;
-		_.each(ops, function(op, i) {
-			var offset = op.si || op.sd ? 2 : 1;
-			if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
-				self._handleOperation(op);
+
+		for (i = 0; i < ops.length; i++) {
+			op = ops[i];
+			if (op.si || op.sd) {
+				stringOperations = groupStringOps(ops, i);
+				i = stringOperations.newIndex;
+
+				this._handleOperations(stringOperations.ops);
+			} else {
+				this._handleOperations([op], {undo: true});
 			}
-		});
+		}
 	};
 
 	var UndoContext = function() {
@@ -132,20 +181,30 @@
 		_undoRedo: function(model, ops) {
 			var offset = 1,
 				root = model,
-				path;
+				path,
+				stringOperations,
+				op,
+				i;
 
 			while (model.parent) {
 				root = model = model.parent;
 			}
 
-			_.each(ops, function(op) {
+			for (i = 0; i < ops.length; i++) {
+				op = ops[i];
 				if (op.si || op.sd) {
 					offset = 2;
-				}
 
-				path = op.p.slice(0, op.p.length - offset).reverse();
-				root.getAt(path)._handleOperation(op, {undo: true});
-			});
+					stringOperations = groupStringOps(ops, i);
+					i = stringOperations.newIndex;
+
+					path = op.p.slice(0, op.p.length - offset).reverse();
+					root.getAt(path)._handleOperations(stringOperations.ops, {undo: true});
+				} else {
+					path = op.p.slice(0, op.p.length - offset).reverse();
+					root.getAt(path)._handleOperations([op], {undo: true});
+				}
+			}
 
 			root.shareDoc.submitOp(ops);
 		}
@@ -246,12 +305,13 @@
 			this.documentPath = this.generateDocumentPath(parent, path);
 
 			this.undoContext = parent.undoContext;
-
-			if (parent.shareDoc) {
+			if (!this.parent) return;
+			
+			if (this.parent.shareDoc) {
 				this._initShareDoc(parent.shareDoc);
 			} else {
-				parent.once('share:connected', function(shareDoc) {
-					self._attach(parent, path);
+				this.parent.once('share:connected', function(shareDoc) {
+					self._attach(self.parent, path);
 					self._initShareDoc(shareDoc);
 				});
 			}
@@ -269,11 +329,12 @@
 
 		_attach: function(parent, path) {
 			var self = this;
+
 			this.parent = parent;
 
-			this._refreshHierarchy(this.parent, path);
+			this._refreshHierarchy(parent, path);
 
-			this.listenTo(this.parent, 'attached', function() {
+			this.listenTo(parent, 'attached', function() {
 				self._refreshHierarchy(parent, path);
 			});
 
@@ -414,7 +475,7 @@
 
 				switch(t) {
 					case 'string':
-						Array.prototype.push.apply(ops, getDiffs(prev, v, path));
+						Array.prototype.push.apply(ops, dmp.getStringOps(prev, v, path));
 						break;
 					case 'number':
 						ops.push({p: path, na: v - (prev || 0)});
@@ -472,46 +533,40 @@
 			}
 		},
 
-		_handleOperation: function (op, options) {
-			console.log('Handling:', op);
+		_handleOperations: function (ops, options) {
+			var self = this,
+				offset = 1;
 
-			if (op.si || op.sd) this._handleStringOperation(op, options);
-			if (op.oi || op.od) this._handleObjectOperation(op, options);
-			if (op.na) this._handleNumberOperation(op, options);
+			if ((ops[0].si || ops[0].sd) && _.isEqual(ops[0].p.slice(0, ops[0].p.length - 2), this.documentPath)) {
+				self._handleStringOperations(ops, options);
+			} else {
+				_.each(ops, function(op, i) {
+					if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
+
+						if (op.oi || op.od) self._handleObjectOperation(op, options);
+						if (op.na) self._handleNumberOperation(op, options);
+					}
+				});
+			}
 		},
 
-		_handleStringOperation: function(op, options) {
-			if (!_.isEqual(op.p.slice(0, op.p.length - 2), this.documentPath)) return;
+		_handleStringOperations: function(ops, options) {
+			console.log('Handling:', ops);
 
-			var pathProp = op.p[op.p.length - 2],
-				pathIndex = op.p[op.p.length - 1],
+			var offset = 2,
+				pathProp = ops[0].p[ops[0].p.length - offset],
 				original = this.get(pathProp),
-				modified, deleted;
+				modified;
 
 			options = options || {};
 			options.local = true;
 
-			if (op.si) {
-				this.set(
-					pathProp,
-					original.slice(0, pathIndex) + op.si + original.slice(pathIndex),
-					options
-				);
-			}
-
-			if (op.sd) {
-				deleted = original.slice(pathIndex, pathIndex + op.sd.length);
-				if (op.sd !== deleted) {
-					throw new Error('Delete component ' + op.sd + ' does not match deleted text ' + deleted);
-				}
-				modified = original.slice(0, pathIndex) + original.slice(pathIndex + op.sd.length);
-
-				this.set(pathProp, modified, options);
-			}
+			modified = dmp.patchStringFromOps(original, ops);
+			this.set(pathProp, modified, options);
 		},
 
 		_handleObjectOperation: function(op, options) {
-			if (!_.isEqual(op.p.slice(0, op.p.length - 1), this.documentPath)) return;
+			console.log('Handling:', op);
 
 			var pathProp = op.p[op.p.length - 1],
 				obj = this.get(pathProp),
@@ -537,8 +592,8 @@
 		},
 
 		_handleNumberOperation: function(op, options) {
-			if (!_.isEqual(op.p.slice(0, op.p.length - 1), this.documentPath)) return;
-
+			console.log('Handling:', op);
+			
 			var pathProp = op.p[op.p.length - 1],
 				currentValue = this.get(pathProp);
 
@@ -671,16 +726,23 @@
 			}
 		},
 
-		_handleOperation: function(op) {
-			console.log('Handling:', op);
+		_handleOperations: function(ops) {
+			var self = this;
 
-			if (op.li) {
-				this.add(new this.model(op.li), {at: op.p[op.p.length - 1], local: true});
-			}
+			_.each(ops, function(op, i) {
+				var offset = op.si || op.sd ? 2 : 1;
+				if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
+					console.log('Handling:', op);
 
-			if (op.ld) {
-				this.remove(this.at(op.p[op.p.length - 1]), {local: true});
-			}
+					if (op.li) {
+						self.add(new self.model(op.li), {at: op.p[op.p.length - 1], local: true});
+					}
+
+					if (op.ld) {
+						self.remove(self.at(op.p[op.p.length - 1]), {local: true});
+					}
+				}
+			});
 		}
 	};
 
