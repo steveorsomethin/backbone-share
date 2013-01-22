@@ -225,6 +225,59 @@
 			});
 		});
 
+		it('should clean up when unsharing', function(done) {
+			var parentModel = new TestParentModel();
+			parentModel.share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModel = new TestChildModel();
+
+				collection.add(newModel);
+				newModel.set('strTest', 'abcdefghij');
+
+				parentModel.unshare();
+
+				asyncAssert(done, function() {
+					expect(parentModel.shareDoc).to.eql(null);
+				});
+			});
+		});
+
+		it('should reopen an existing model and initialize', function(done) {
+			var parentModel = new TestParentModel();
+			parentModel.share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModel = new TestChildModel();
+
+				collection.add(newModel);
+				newModel.set('strTest', 'abcdefghij');
+
+				parentModel.unshare();
+
+				var newParentModel = new TestParentModel({id: parentModel.get('id')});
+				newParentModel.share(function(error, root) {
+					asyncAssert(done, function() {
+						expect(parentModel.toJSON()).to.eql(newParentModel.toJSON());
+					});
+				});
+			});
+		});
+
+		it('should send all changes on connection', function(done) {
+			var parentModel = new TestParentModel(),
+				collection = parentModel.get('collectionTest'),
+				newModel = new TestChildModel();
+
+			collection.add(newModel);
+			newModel.set('strTest', 'abcdefghij');
+			parentModel.share(function(error, root) {
+				asyncAssert(done, function() {
+					expect(parentModel.toJSON()).to.eql(parentModel.shareDoc.snapshot);
+				});
+			});
+		});
+
 		it('should emit si operation when adding text', function(done) {
 			new TestParentModel().share(function(error, root) {
 				var model = this,
@@ -247,6 +300,6 @@
 			});
 		});
 
-		
+
 	});
 }).call(this);
