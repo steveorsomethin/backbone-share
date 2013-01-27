@@ -1,4 +1,4 @@
-sharebone
+backbone-share
 =========
 
 An adapter for backbone models and collections on top of sharejs documents

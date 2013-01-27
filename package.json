@@ -2,10 +2,10 @@
 	"name": "backbone-sharejs",
 	"version": "0.0.1",
 	"description": "An adapter for backbone models and collections on top of sharejs documents",
-	"homepage": "https://github.com/steveorsomethin/sharebone",
+	"homepage": "https://github.com/steveorsomethin/backbone-share",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/steveorsomethin/sharebone"
+		"url": "https://github.com/steveorsomethin/backbone-share"
 	},
 	"author": {
 			"name": "Steve McGuire",
