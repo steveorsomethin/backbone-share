@@ -220,10 +220,11 @@
 				this.documentName = this.documentName || this.generateDocumentName();
 				sharejs.open(this.documentName, 'json', function(error, doc) {
 					Backbone.ShareLogger.log('Opened document "' + self.documentName + '"');
+					var created = doc.created;
 
 					self.once('share:connected', function() {
 						if (callback) 
-							callback.call(caller || self, error, self);
+							callback.call(caller || self, error, self, created);
 					});
 
 					self._initShareDoc(doc);
