@@ -545,8 +545,9 @@
 				self._handleStringOperations(ops, options);
 			} else {
 				_.each(ops, function(op, i) {
-					if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
-
+					if (op.p.length === 0 && op.od && op.oi) {
+						self._initFromSnapshot(self.shareDoc.snapshot);
+					} else if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
 						if (op.oi || op.od) self._handleObjectOperation(op, options);
 						if (op.na) self._handleNumberOperation(op, options);
 					}
@@ -735,7 +736,9 @@
 
 			_.each(ops, function(op, i) {
 				var offset = op.si || op.sd ? 2 : 1;
-				if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
+				if (op.p.length === 0 && op.od && op.oi) {
+					self._initFromSnapshot(self.shareDoc.snapshot);
+				} else if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
 					console.log('Handling:', op);
 
 					if (op.li) {
