@@ -113,8 +113,8 @@
 			stringOps = [op],
 			path = op.p.slice(0, op.p.length - offset);
 
-		for (i; i < ops.length; i++) {
-			op = ops[i];
+		while (i < ops.length) {
+			op = ops[i++];
 			if ((op.si || op.sd) && _.isEqual(path, op.p.slice(0, op.p.length - offset))) {
 				stringOps.push(op);
 			} else {
