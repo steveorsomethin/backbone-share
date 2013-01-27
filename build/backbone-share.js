@@ -139,10 +139,6 @@
 			op,
 			i;
 
-		if (this.lastOps === ops) return;
-		
-		this.lastOps = ops;
-
 		for (i = 0; i < ops.length; i++) {
 			op = ops[i];
 			if (op.si || op.sd) {
@@ -254,7 +250,10 @@
 				this.parent.unshare();
 			}
 			
-			this.shareDoc.removeListener('remoteop', this._onRemoteOp);
+			if (this._onRemoteOp) {
+				Object.getPrototypeOf(this.shareDoc).removeListener
+					.call(this.shareDoc, 'remoteop', this._onRemoteOp);
+			}
 			this.shareDoc = null;
 		},
 
@@ -302,9 +301,13 @@
 
 			//Prevent redundant bindings
 			if (this._onRemoteOp) {
-				shareDoc.removeListener(this._onRemoteOp);
+				//TODO: Find a way around this minor wtf
+				Object.getPrototypeOf(shareDoc).removeListener.call(shareDoc, 'remoteop', this._onRemoteOp);
+			} else {
+				this._onRemoteOp = onRemoteOp.bind(this);
 			}
-			this._onRemoteOp = shareDoc.on('remoteop', onRemoteOp.bind(this));
+
+			shareDoc.on('remoteop', this._onRemoteOp);
 
 			this.trigger('share:connected', this.shareDoc);
 		},
