@@ -1,5 +1,5 @@
 {
-	"name": "backbone-sharejs",
+	"name": "backbone-share",
 	"version": "0.0.1",
 	"description": "An adapter for backbone models and collections on top of sharejs documents",
 	"homepage": "https://github.com/steveorsomethin/backbone-share",
