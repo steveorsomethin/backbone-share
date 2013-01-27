@@ -1,8 +1,8 @@
 // Need to validate models
-// Verify re-opening works
 // Clean up parent/child reference cycles
 // Need to handle connectivity on undo/redo
 // List move?
+// Removing listeners on ShareDocs isn't working
 
 (function(){
 	var root = this,
