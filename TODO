@@ -1,0 +1,6 @@
+Add pre-send hook for validation, etc
+Clean up parent/child reference cycles
+Need to handle connectivity on undo/redo
+List move?
+Removing listeners on ShareDocs isn't working
+Verify sub-models are SharedModels before trying to attach them
