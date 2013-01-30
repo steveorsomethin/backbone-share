@@ -158,14 +158,35 @@
 	};
 
 	_.extend(UndoContext.prototype, {
-		pushOps: function(ops) {
-			if (this.stack.length && this.index !== this.stack.length - 1) {
-				this.stack = this.stack.slice(0, Math.max(0, this.index + 1));
-				this.index = this.stack.length - 1;
-			}
+		group: function(contextFunc) {
+			var groupedOps = this.groupedOps = [];
 
-			this.stack.push(ops);
-			this.index++;
+			contextFunc.call();
+
+			this.groupedOps = null;
+			this.pushOps(groupedOps);
+		},
+
+		prevent: function(contextFunc) {
+			this.preventUndo = true;
+
+			contextFunc.call();
+
+			this.preventUndo = false;
+		},
+
+		pushOps: function(ops) {
+			if (this.groupedOps) {
+				Array.prototype.push.apply(this.groupedOps, ops);
+			} else if (!this.preventUndo) {
+				if (this.stack.length && this.index !== this.stack.length - 1) {
+					this.stack = this.stack.slice(0, Math.max(0, this.index + 1));
+					this.index = this.stack.length - 1;
+				}
+
+				this.stack.push(ops);
+				this.index++;
+			}
 		},
 
 		undo: function(model) {
@@ -257,14 +278,30 @@
 			this.shareDoc = null;
 		},
 
+		groupUndoOps: function(contextFunc) {
+			this.undoContext.group(contextFunc.bind(this));
+
+			return this;
+		},
+
+		preventUndo: function(contextFunc) {
+			this.undoContext.prevent(contextFunc.bind(this));
+
+			return this;
+		},
+
 		undo: function() {
-			this.undoContext.undo(this);
+			if (this.shareDoc) {
+				this.undoContext.undo(this);
+			}
 
 			return this;
 		},
 
 		redo: function() {
-			this.undoContext.redo(this);
+			if (this.shareDoc) {
+				this.undoContext.redo(this);
+			}
 
 			return this;
 		},
@@ -537,10 +574,6 @@
 				}
 			});
 
-			if (!options || (!options.undo && !options.silent)) {
-				this.undoContext.pushOps(ops);
-			}
-
 			if (this.shareDoc) {
 				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, this._submitHandler);
@@ -744,10 +777,6 @@
 				}
 			} else {
 				console.log('Not connected, ignoring ', ops);
-			}
-
-			if (!options || !options.undo) {
-				this.undoContext.pushOps(ops);
 			}
 		},
 

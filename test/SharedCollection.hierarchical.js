@@ -186,6 +186,94 @@
 			});
 		});
 
+		it('should undo multiple operations when grouping undo', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()],
+					originalState = this.toJSON();
+
+				this.groupUndoOps(function() {
+					collection.add(newModels);
+					collection.at(0).set('strTest', '12345');
+					this.set('boolTest', true);
+					this.set('numTest', 300);
+				});
+
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql([
+							{p: ['numTest'], na: -250},
+							{p: ['boolTest'], od: true, oi: false},
+							{p: ['collectionTest', 0, 'strTest', 0], sd: '12345'},
+							{p: ['collectionTest', 0, 'strTest', 0], si: 'abcdefg'},
+							{p: ['collectionTest', 2], ld: newModels[2].toJSON()},
+							{p: ['collectionTest', 1], ld: newModels[1].toJSON()},
+							{p: ['collectionTest', 0], ld: newModels[0].toJSON()}
+						]);
+						expect(model.shareDoc.snapshot).to.eql(originalState);
+					});
+				});
+
+				this.undo();
+			});
+		});
+
+		it('should redo multiple operations when grouping undo', function(done) {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()],
+					jsonModels = newModels.map(function(model) {return model.toJSON();}),
+					originalState;
+
+				this.groupUndoOps(function() {
+					collection.add(newModels);
+					collection.at(0).set('strTest', '12345');
+					this.set('boolTest', true);
+					this.set('numTest', 300);
+				});
+
+				originalState = this.toJSON();
+
+				this.undo();
+
+				this.shareDoc.on('change', function(ops) {
+					asyncAssert(done, function() {
+						expect(ops).to.eql([
+							{p: ['collectionTest', 0], li: jsonModels[0]},
+							{p: ['collectionTest', 1], li: jsonModels[1]},
+							{p: ['collectionTest', 2], li: jsonModels[2]},
+							{p: ['collectionTest', 0, 'strTest', 0], sd: 'abcdefg'},
+							{p: ['collectionTest', 0, 'strTest', 0], si: '12345'},
+							{p: ['boolTest'], od: false, oi: true},
+							{p: ['numTest'], na: 250},
+						]);
+						expect(model.shareDoc.snapshot).to.eql(originalState);
+					});
+				});
+
+				this.redo();
+			});
+		});
+
+		it('should not modify the undo stack when preventing undo', function() {
+			new TestParentModel().share(function(error, root) {
+				var model = this,
+					collection = this.get('collectionTest'),
+					newModels = [new TestChildModel(), new TestChildModel(), new TestChildModel()];
+
+				this.preventUndo(function() {
+					collection.add(newModels);
+					collection.at(0).set('strTest', '12345');
+					this.set('boolTest', true);
+					this.set('numTest', 300);
+				});
+
+				expect(this.undoContext.stack.length).to.eql(0);
+			});
+		});
+
 		it('should add elements on incoming li operation', function(done) {
 			new TestParentModel().share(function(error, root) {
 				var model = this,
