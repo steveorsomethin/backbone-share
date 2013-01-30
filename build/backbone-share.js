@@ -544,6 +544,10 @@
 			if (this.shareDoc) {
 				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, this._submitHandler);
+
+				if (!options || (!options.undo && !options.silent)) {
+					this.undoContext.pushOps(ops);
+				}
 			} else {
 				console.log('Not connected, ignoring ', ops);
 			}
@@ -734,6 +738,10 @@
 			if (this.shareDoc) {
 				Backbone.ShareLogger.log('Sending:', ops);
 				this.shareDoc.submitOp(ops, callback);
+
+				if (!options|| (!options.undo && !options.silent)) {
+					this.undoContext.pushOps(ops);
+				}
 			} else {
 				console.log('Not connected, ignoring ', ops);
 			}
