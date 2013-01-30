@@ -683,7 +683,7 @@
 		},
 
 		remove: function(models, options) {
-			var ops;
+			var ops, self = this;
 			models =  models = _.isArray(models) ? models.slice() : [models];
 
 			if (!options || (!options.local  && !options.silent)) {
@@ -695,6 +695,8 @@
 			}
 
 			_.each(models, function(model) {
+				if (self.indexOf(model) === -1) return;
+
 				model._setParent(null);
 			});
 
@@ -738,7 +740,10 @@
 
 		_prepareListChanges: function(models, type) {
 			var self = this;
-			var ops = _.map(models, function(model) {
+			var ops = [];
+			_.each(models, function(model) {
+				if (self.indexOf(model) === -1) return;
+
 				var op = {
 					p: self.documentPath.concat([self.indexOf(model)])
 				}
@@ -754,7 +759,7 @@
 						throw new Error('Unrecognized list operation type: ' + type);
 				}
 
-				return op;
+				ops.push(op);
 			});
 
 			//Work backwards so that ld operations don't corrupt the snapshot due to splicing
