@@ -199,7 +199,7 @@
 		},
 
 		redo: function(model) {
-			if (this.stack.length) {
+			if (this.stack.length && this.index < this.stack.length - 1) {
 				this._undoRedo(model, this.stack[++this.index]);
 			}
 		},
