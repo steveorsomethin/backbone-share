@@ -706,6 +706,10 @@
 			});
 
 			Backbone.Collection.prototype.remove.apply(this, arguments);
+
+			_.each(this.models, function(model) {
+				model._setParent(self, self.indexOf(model));
+			});
 		},
 
 		generateDocumentName: function() {
