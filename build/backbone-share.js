@@ -575,11 +575,12 @@
 			});
 
 			if (this.shareDoc) {
-				Backbone.ShareLogger.log('Sending:', ops);
-				this.shareDoc.submitOp(ops, this._submitHandler);
-
-				if (!options || (!options.undo && !options.silent)) {
-					this.undoContext.pushOps(ops);
+				if (ops.length) {
+					Backbone.ShareLogger.log('Sending:', ops);
+					this.shareDoc.submitOp(ops, this._submitHandler);
+					if (!options || (!options.undo && !options.silent)) {
+						this.undoContext.pushOps(ops);
+					}
 				}
 			} else {
 				console.log('Not connected, ignoring ', ops);
@@ -679,12 +680,16 @@
 
 			models =  models = _.isArray(models) ? models.slice() : [models];
 
-			this._attachSubModels(models, options);
+			if (models.length) {
+				this._attachSubModels(models, options);
+			}
 		},
 
 		remove: function(models, options) {
 			var ops, self = this;
 			models =  models = _.isArray(models) ? models.slice() : [models];
+
+			if (!models.length) return;
 
 			if (!options || (!options.local  && !options.silent)) {
 				ops = this._prepareListChanges(models, 'remove');
