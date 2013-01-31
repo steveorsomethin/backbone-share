@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+
+var express = require('express'),
+	sharejs = require('share').server,
+	app = express.createServer();
+
+sharejs.attach(app, {db: {type: 'none'}});
+
+app.use('/', express.static(__dirname));
+app.use('/build', express.static(__dirname + '/../../build'));
+app.use('/deps', express.static(__dirname + '/../../deps'));
+
+app.listen(8080); //TODO: Make this an argument
