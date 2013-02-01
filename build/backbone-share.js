@@ -21,18 +21,25 @@
 
 	Backbone.ShareLogger = console;
 
+	// Returns an operation path without the target property
+	// Example string op input of {si: "abc", p: ['person', 'name', 0]}
+	// would yield ['person']
+	// Any other operation type such as {oi: {name: "abc"}, p: ['person']}
+	// would yield []
 	var getBasePath = function(op) {
 		var offset = op.si || op.sd ? 2 : 1;
 
 		return op.p.slice(0, op.p.length - offset);
 	};
 
+	// Returns the target property of an operation path
 	var getPathProperty = function(op) {
 		var offset = op.si || op.sd ? 2 : 1;
 
 		return op.p[op.p.length - offset];
 	};
 
+	// Utilities for extracting and patching string differences.
 	var dmp = (function() {
 		var diff_match_patch = this.diff_match_patch,
 			DIFF_EQUAL = this.DIFF_EQUAL,
@@ -41,6 +48,8 @@
 
 		var dmp = new diff_match_patch();
 		return {
+			// Uses google's diff_match_patch and digests the diff output
+			// into a series of string ops
 			getStringOps: function(str1, str2, basePath) {
 				str1 = str1 || '';
 				str2 = str2 || '';
@@ -77,6 +86,8 @@
 				return ops;
 			},
 
+			// Applies a group of string operations to a target string in
+			// a single pass. Doesn't actually use diff_match_patch(yet)
 			patchStringFromOps: function(str, ops) {
 				_.each(ops, function(op) {
 					var pathIndex = op.p[op.p.length - 1],
@@ -119,6 +130,7 @@
 		return (((1 + Math.random()) * 65536) | 0).toString(16).substring(1);
 	};
 
+	// Potentially not reliable. Lib users can supply their own IDs if desired
 	var generateGUID = function() {
 		return S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4();
 	};
@@ -127,6 +139,8 @@
 		return obj instanceof Backbone.SharedModel || obj instanceof Backbone.SharedCollection;
 	};
 
+	// Detects any grouping of contiguous string ops in an op array
+	// Useful for applying a complex patch against a string in a single go
 	var groupStringOps = function(ops, start) {
 		var i = start,
 			op = ops[i++],
@@ -145,6 +159,8 @@
 		return {ops: stringOps, newIndex: --i};
 	};
 
+	// Handler for sharejs 'remoteop' event
+	// Intended to be bound to the caller and passed to sharejs
 	var onRemoteOp = function(ops) {
 		var stringOperations,
 			op,
@@ -163,12 +179,16 @@
 		}
 	};
 
+	// Object for managing undo and redo state
 	var UndoContext = function() {
 		this.stack = [];
 		this.index = -1;
 	};
 
 	_.extend(UndoContext.prototype, {
+		// Diverts any operations applied to models using this undo context
+		// into a temporary array. Pumps the grouped operations as a single
+		// undo stack entry after the supplied context function exits
 		group: function(contextFunc) {
 			var groupedOps = this.groupedOps = [];
 
@@ -178,6 +198,8 @@
 			this.pushOps(groupedOps);
 		},
 
+		// Prevents any operations applied to models inside the supplied 
+		// context function from creating an undo stack entry
 		prevent: function(contextFunc) {
 			this.preventUndo = true;
 
@@ -186,6 +208,7 @@
 			this.preventUndo = false;
 		},
 
+		// Adds the supplied operation array to the undo stack
 		pushOps: function(ops) {
 			if (this.groupedOps) {
 				Array.prototype.push.apply(this.groupedOps, ops);
@@ -200,6 +223,8 @@
 			}
 		},
 
+		// Moves the undo stack pointer down and applies the previous 'head'
+		// operations to the supplied model
 		undo: function(model) {
 			var ops;
 
@@ -209,12 +234,16 @@
 			}
 		},
 
+		// Moves the undo stack point up and applies the prevous 'head'
+		// operations to the supplied model
 		redo: function(model) {
 			if (this.stack.length && this.index < this.stack.length - 1) {
 				this._undoRedo(model, this.stack[++this.index]);
 			}
 		},
 
+		// The guts of undo and redo. Finds the root object in order to find
+		// the actual object to apply operations to based on each operation path 
 		_undoRedo: function(model, ops) {
 			var root = model,
 				path,
@@ -244,7 +273,14 @@
 		}
 	});
 
+	// The base object containing common functionality for SharedModel and SharedCollection
 	var common = {
+
+		// Connects this model and its children to the sharejs server based on the root
+		// model's documentName property. The callback is expected to accept error, root,
+		// and created params, where error is a sharejs error, root is the root of the 
+		// model tree, and created is a flag indicating that the document was created in
+		// the sharejs store
 		share: function(callback, caller) {
 			if (this.shareDoc) return callback ? callback.call(this, null, this) : this;
 
@@ -270,6 +306,7 @@
 			return this;
 		},
 
+		// Disconnects the model and its children from the sharejs server
 		unshare: function() {
 			if (!this.shareDoc) return this;
 
@@ -286,18 +323,21 @@
 			this.shareDoc = null;
 		},
 
+		// Wrapper for UndoContext.group
 		groupUndoOps: function(contextFunc) {
 			this.undoContext.group(contextFunc.bind(this));
 
 			return this;
 		},
 
+		// Wrapper for UndoContext.prevent
 		preventUndo: function(contextFunc) {
 			this.undoContext.prevent(contextFunc.bind(this));
 
 			return this;
 		},
 
+		// Wrapper for UndoContext.undo
 		undo: function() {
 			if (this.shareDoc) {
 				this.undoContext.undo(this);
@@ -306,6 +346,7 @@
 			return this;
 		},
 
+		// Wrapper for UndoContext.redo
 		redo: function() {
 			if (this.shareDoc) {
 				this.undoContext.redo(this);
@@ -314,10 +355,13 @@
 			return this;
 		},
 
+		// Generates a path array based on this model's parent path, and
+		// the propety path relative to the parent
 		generateDocumentPath: function(parent, path) {
 			return parent ? parent.documentPath.concat(path) : [];
 		},
 
+		// Utility function to get a nested model at a given sharejs path
 		getAt: function(path) {
 			var currentModel = this;
 
@@ -328,6 +372,8 @@
 			return currentModel;
 		},
 
+		// Internal function for attaching a model to a sharejs document
+		// once connection is successful
 		_initShareDoc: function(shareDoc) {
 			if (shareDoc.type.name !== 'json') {
 				throw new Error('ShareJS document must be of type "json"');
@@ -355,6 +401,8 @@
 			this.trigger('share:connected', this.shareDoc);
 		},
 
+		// Refreshes this model's path information and listeners in order to
+		// preserve the model tree's consistency
 		_refreshHierarchy: function(parent, path) {
 			var self = this;
 
@@ -373,6 +421,7 @@
 			}
 		},
 
+		// Sets the parent ShareModel|Collection
 		_setParent: function(parent, path) {
 			if (this.parent) {
 				this._detach();
@@ -383,6 +432,8 @@
 			}
 		},
 
+		// Calls refreshHierarchy and lets child models know that
+		// they should start initializing
 		_attach: function(parent, path) {
 			var self = this;
 
@@ -397,6 +448,7 @@
 			this.trigger('attached');
 		},
 
+		// Cleans up listeners and sharejs information on this model
 		_detach: function() {
 			this.stopListening(this.parent);
 
@@ -408,11 +460,13 @@
 			this.trigger('detached');
 		},
 
+		// Generic sharejs error handler
 		_submitHandler: function(error) {
 			if (error) throw error;
 		}
 	};
 
+	// A sharejs adapter for Backbone.Model
 	var sharedModelProto = {
 		constructor: function(attr, options) {
 			var self = this;
@@ -441,6 +495,8 @@
 			});
 		},
 
+		// Performs model attachment and sharejs initialization of any SharedModel|Collection
+		// attributes before Backbone.Model.set is called
 		set: function(key, val, options) {
 			var attrs, self = this;
 			if (key == null) return this;
@@ -479,10 +535,12 @@
 			this._attachSubModels(attrs);
 		},
 
+		// Default behavior to generate a documentName property for sharejs
 		generateDocumentName: function() {
 			return this.get('id');
 		},
 
+		// Override to recursively build a json document from a complete hierarchy
 		toJSON: function() {
 			var json = _.clone(this.attributes);
 
@@ -497,18 +555,22 @@
 			return json;
 		},
 
+		// Used to initialize the sharejs document for this model's path
 		_initialState: function() {
 			return this.toJSON();
 		},
 
+		// Used by common.getAt
 		_getAtPathPart: function(part) {
 			return this.get(part);
 		},
 
+		// Loads snapshot data into this model's path
 		_initFromSnapshot: function(snapshot) {
 			this.set(_.clone(snapshot), {local: true});
 		},
 
+		// Attaches sub SharedModel|Collection instances to this model's hierarchy
 		_attachSubModels: function(attributes) {
 			var self = this;
 
@@ -521,6 +583,8 @@
 			});
 		},
 
+		// Detects changed attributes and builds an array of operations, then issues
+		// the operations to this model's sharejs document
 		_sendModelChange: function(options) {
 			var self = this;
 
@@ -593,6 +657,7 @@
 			}
 		},
 
+		// Applies incoming sharejs operations to this model
 		_handleOperations: function (ops, options) {
 			var self = this;
 
@@ -663,6 +728,7 @@
 		}
 	};
 
+	// A sharejs adapter for Backbone.Collection
 	var sharedCollectionProto = {
 		constructor: function(models, options) {
 			this.documentPath = this.generateDocumentPath();
@@ -677,6 +743,7 @@
 			}
 		},
 
+		// Attaches sub SharedModels after they're attached to this collection
 		add: function(models, options) {
 			Backbone.Collection.prototype.add.apply(this, arguments);
 
@@ -687,6 +754,8 @@
 			}
 		},
 
+		// Prepares and sends list ops, detaches removed models from this tree
+		// Then refreshes the paths of all contained models
 		remove: function(models, options) {
 			var ops, self = this;
 			models =  models = _.isArray(models) ? models.slice() : [models];
@@ -714,10 +783,12 @@
 			});
 		},
 
+		// Default behavior to generate a documentName property for sharejs
 		generateDocumentName: function() {
 			return generateGUID();
 		},
 
+		// Attaches sub SharedModel instances to this model's hierarchy
 		_attachSubModels: function(models, options) {
 			var self = this;
 
@@ -731,14 +802,17 @@
 			}
 		},
 
+		// Used to initialize the sharejs document for this model's path
 		_initialState: function() {
 			return [];
 		},
 
+		// Used by common.getAt
 		_getAtPathPart: function(part) {
 			return this.at(part);
 		},
 
+		// Loads snapshot data into this model's path
 		_initFromSnapshot: function(snapshot) {
 			var self = this;
 
@@ -749,6 +823,8 @@
 			});
 		},
 
+		// Prepares an array of operations based on the affected models and the
+		// operation type ('add'|'remove') and returns rather than sends it
 		_prepareListChanges: function(models, type) {
 			var self = this;
 			var ops = [];
@@ -783,6 +859,7 @@
 			return ops;
 		},
 
+		// Sends the supplied operations to the collection's sharejs document
 		_sendOps: function(ops, options, callback) {
 			if (this.shareDoc) {
 				Backbone.ShareLogger.log('Sending:', ops);
@@ -796,6 +873,7 @@
 			}
 		},
 
+		// Applies incoming sharejs operations to this collection
 		_handleOperations: function(ops) {
 			var self = this;
 
