@@ -21,6 +21,18 @@
 
 	Backbone.ShareLogger = console;
 
+	var getBasePath = function(op) {
+		var offset = op.si || op.sd ? 2 : 1;
+
+		return op.p.slice(0, op.p.length - offset);
+	};
+
+	var getPathProperty = function(op) {
+		var offset = op.si || op.sd ? 2 : 1;
+
+		return op.p[op.p.length - offset];
+	};
+
 	var dmp = (function() {
 		var diff_match_patch = this.diff_match_patch,
 			DIFF_EQUAL = this.DIFF_EQUAL,
@@ -116,15 +128,14 @@
 	};
 
 	var groupStringOps = function(ops, start) {
-		var offset = 2,
-			i = start,
+		var i = start,
 			op = ops[i++],
 			stringOps = [op],
-			path = op.p.slice(0, op.p.length - offset);
+			path = getBasePath(op);
 
 		while (i < ops.length) {
 			op = ops[i++];
-			if ((op.si || op.sd) && _.isEqual(path, op.p.slice(0, op.p.length - offset))) {
+			if ((op.si || op.sd) && _.isEqual(path, getBasePath(op))) {
 				stringOps.push(op);
 			} else {
 				break;
@@ -218,16 +229,14 @@
 
 			for (i = 0; i < ops.length; i++) {
 				op = ops[i];
+				path = getBasePath(op).reverse();
+				
 				if (op.si || op.sd) {
-					offset = 2;
-
 					stringOperations = groupStringOps(ops, i);
 					i = stringOperations.newIndex;
 
-					path = op.p.slice(0, op.p.length - offset).reverse();
 					root.getAt(path)._handleOperations(stringOperations.ops, {undo: true});
 				} else {
-					path = op.p.slice(0, op.p.length - offset).reverse();
 					root.getAt(path)._handleOperations([op], {undo: true});
 				}
 			}
@@ -588,8 +597,7 @@
 		},
 
 		_handleOperations: function (ops, options) {
-			var self = this,
-				offset = 1;
+			var self = this;
 
 			if ((ops[0].si || ops[0].sd) && _.isEqual(ops[0].p.slice(0, ops[0].p.length - 2), this.documentPath)) {
 				self._handleStringOperations(ops, options);
@@ -597,7 +605,7 @@
 				_.each(ops, function(op, i) {
 					if (op.p.length === 0 && op.od && op.oi) {
 						self._initFromSnapshot(self.shareDoc.snapshot);
-					} else if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
+					} else if (_.isEqual(getBasePath(op), self.documentPath)) {
 						if (op.oi || op.od) self._handleObjectOperation(op, options);
 						if (op.na) self._handleNumberOperation(op, options);
 					}
@@ -608,8 +616,7 @@
 		_handleStringOperations: function(ops, options) {
 			console.log('Handling:', ops);
 
-			var offset = 2,
-				pathProp = ops[0].p[ops[0].p.length - offset],
+			var pathProp = getPathProperty(ops[0]),
 				original = this.get(pathProp),
 				modified;
 
@@ -801,7 +808,7 @@
 				var offset = op.si || op.sd ? 2 : 1;
 				if (op.p.length === 0 && op.od && op.oi) {
 					self._initFromSnapshot(self.shareDoc.snapshot);
-				} else if (_.isEqual(op.p.slice(0, op.p.length - offset), self.documentPath)) {
+				} else if (_.isEqual(getBasePath(op), self.documentPath)) {
 					console.log('Handling:', op);
 
 					if (op.li) {
