@@ -83,7 +83,7 @@
 						deleted;
 
 					if (op.si) {
-						str = str.slice(0, pathIndex) + op.si + str.slice(pathIndex)
+						str = str.slice(0, pathIndex) + op.si + str.slice(pathIndex);
 					}
 
 					if (op.sd) {
@@ -97,7 +97,7 @@
 
 				return str;
 			}
-		}
+		};
 	}).call(this);
 
 	//Lifted from jQuery
@@ -108,11 +108,11 @@
 			class2type[ "[object " + name + "]" ] = name.toLowerCase();
 		});
 
-		return function( obj ) {
+		return function(obj) {
 			return obj == null ?
 				String(obj):
 				class2type[Object.prototype.toString.call(obj)] || "object";
-		}
+		};
 	}).call(this);
 
 	var S4 = function() {
@@ -216,8 +216,7 @@
 		},
 
 		_undoRedo: function(model, ops) {
-			var offset = 1,
-				root = model,
+			var root = model,
 				path,
 				stringOperations,
 				op,
@@ -330,8 +329,6 @@
 		},
 
 		_initShareDoc: function(shareDoc) {
-			var self = this;
-
 			if (shareDoc.type.name !== 'json') {
 				throw new Error('ShareJS document must be of type "json"');
 			}
@@ -668,8 +665,6 @@
 
 	var sharedCollectionProto = {
 		constructor: function(models, options) {
-			var self = this;
-
 			this.documentPath = this.generateDocumentPath();
 			this.undoContext = new UndoContext();
 
@@ -762,7 +757,7 @@
 
 				var op = {
 					p: self.documentPath.concat([self.indexOf(model)])
-				}
+				};
 
 				switch (type) {
 					case 'add':
@@ -805,7 +800,6 @@
 			var self = this;
 
 			_.each(ops, function(op, i) {
-				var offset = op.si || op.sd ? 2 : 1;
 				if (op.p.length === 0 && op.od && op.oi) {
 					self._initFromSnapshot(self.shareDoc.snapshot);
 				} else if (_.isEqual(getBasePath(op), self.documentPath)) {
